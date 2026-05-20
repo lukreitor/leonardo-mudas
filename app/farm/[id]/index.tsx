@@ -20,6 +20,7 @@ import { RecentWeekCard } from '@/components/RecentWeekCard';
 import { EmptyIllustration } from '@/components/EmptyIllustration';
 import { MediaViewer } from '@/components/MediaViewer';
 import { EditNoteSheet } from '@/components/EditNoteSheet';
+import { FarmMapPreview } from '@/components/FarmMapPreview';
 import { notesRepo, mediaRepo } from '@/repositories/notes';
 import type { Media } from '@/db/schema';
 import { colors, farmColors } from '@/theme/colors';
@@ -236,6 +237,33 @@ export default function FarmDetailScreen() {
             ) : null}
           </>
         )}
+
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>Localização</Text>
+        </View>
+        <View style={{ paddingHorizontal: 20 }}>
+          {farm.lat != null && farm.lng != null ? (
+            <FarmMapPreview
+              farmName={farm.name}
+              lat={farm.lat}
+              lng={farm.lng}
+              colorToken={avatarColor}
+            />
+          ) : (
+            <Pressable
+              style={styles.locationEmpty}
+              onPress={() => router.push(`/farm-edit?id=${farm.id}` as any)}>
+              <Ionicons name="location-outline" size={20} color={colors.ink3} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.locationEmptyTitle}>GPS não cadastrado</Text>
+                <Text style={styles.locationEmptySub}>
+                  Toque para adicionar a localização desta fazenda
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.ink4} />
+            </Pressable>
+          )}
+        </View>
 
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>Pagamento</Text>
@@ -457,4 +485,17 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   recentList: { paddingHorizontal: 20, gap: 8 },
+  locationEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    backgroundColor: colors.neblina,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(26,58,46,0.15)',
+  },
+  locationEmptyTitle: { fontFamily: fonts.uiSemibold, fontSize: 14, color: colors.ink1 },
+  locationEmptySub: { fontFamily: fonts.ui, fontSize: 12, color: colors.ink3, marginTop: 2 },
 });
