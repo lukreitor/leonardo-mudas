@@ -102,8 +102,10 @@
     },
     "extra": {
       "eas": {
-        "projectId": ""
-      }
-    }
+        "projectId": "5678d758-48bb-4610-8a26-aaed774ff438"
+      },
+      "router": {}
+    },
+    "owner": "dulloo"
   }
 }
