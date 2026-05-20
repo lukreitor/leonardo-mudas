@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,12 +7,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { farmsRepo } from '@/repositories/farms';
 import { notesService, type NoteWithMedia } from '@/services/notes';
+import { farmsService, type WeekStat } from '@/services/farms';
+import { paymentsService } from '@/services/payments';
 import { NoteBlock } from '@/components/NoteBlock';
 import { YearHeatmap } from '@/components/YearHeatmap';
+import { PaymentCard } from '@/components/PaymentCard';
+import { RecentWeekCard } from '@/components/RecentWeekCard';
 import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { initialsOf } from '@/lib/initials';
-import { currentWeek, weekLabel } from '@/lib/date';
+import { currentWeek, weekLabel, shiftWeek, type WeekRef } from '@/lib/date';
 import type { Farm } from '@/db/schema';
 
 export default function FarmDetailScreen() {
@@ -20,23 +24,49 @@ export default function FarmDetailScreen() {
   const router = useRouter();
   const [farm, setFarm] = useState<Farm | null>(null);
   const [notes, setNotes] = useState<NoteWithMedia[]>([]);
+  const [weekStats, setWeekStats] = useState<Map<number, WeekStat>>(new Map());
+  const [selectedWeek, setSelectedWeek] = useState<WeekRef>(currentWeek());
+  const [receivedMonth, setReceivedMonth] = useState(0);
+  const [paymentStatus, setPaymentStatus] = useState<'paid' | 'pending' | 'overdue' | 'none'>('none');
 
-  const week = currentWeek();
+  const todayWeek = useMemo(() => currentWeek(), []);
+  const isCurrentWeek = selectedWeek.year === todayWeek.year && selectedWeek.week === todayWeek.week;
 
   const load = useCallback(async () => {
     const f = await farmsRepo.getById(Number(id));
     setFarm(f);
-    if (f) {
-      const ns = await notesService.listForFarmAndWeek(f.id, week);
-      setNotes(ns);
+    if (!f) return;
+    const ns = await notesService.listForFarmAndWeek(f.id, selectedWeek);
+    setNotes(ns);
+    const stats = await farmsService.getWeekStats(f.id, selectedWeek.year);
+    setWeekStats(stats);
+    const today = new Date();
+    const summary = await paymentsService.monthlySummary(today.getFullYear(), today.getMonth() + 1);
+    const farmRow = summary.byFarm.find((r) => r.farm.id === f.id);
+    if (farmRow) {
+      setReceivedMonth(farmRow.receivedThisMonth);
+      setPaymentStatus(farmRow.status);
     }
-  }, [id, week]);
+  }, [id, selectedWeek]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   if (!farm) return <View style={{ flex: 1, backgroundColor: colors.papel }} />;
 
   const avatarColor = farm.colorToken ?? farmColors[(farm.id - 1) % farmColors.length];
+
+  const weekLevels = new Map<number, 0 | 1 | 2 | 3 | 4>();
+  for (const [wn, st] of weekStats.entries()) {
+    const total = st.noteCount;
+    const lvl: 0 | 1 | 2 | 3 | 4 =
+      total >= 5 ? 4 : total >= 3 ? 3 : total >= 2 ? 2 : total >= 1 ? 1 : 0;
+    weekLevels.set(wn, lvl);
+  }
+
+  const recentStats = Array.from(weekStats.values())
+    .sort((a, b) => b.week - a.week)
+    .filter((s) => !(s.year === todayWeek.year && s.week === todayWeek.week))
+    .slice(0, 3);
 
   return (
     <View style={styles.root}>
@@ -51,9 +81,18 @@ export default function FarmDetailScreen() {
               <Pressable onPress={() => router.back()} style={styles.navBtn}>
                 <Ionicons name="chevron-back" size={22} color="white" />
               </Pressable>
-              <Pressable style={styles.navBtn}>
-                <Ionicons name="ellipsis-horizontal" size={20} color="white" />
-              </Pressable>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Pressable
+                  onPress={() => router.push(`/farm-edit?id=${farm.id}` as any)}
+                  style={styles.navBtn}>
+                  <Ionicons name="create-outline" size={18} color="white" />
+                </Pressable>
+                <Pressable
+                  onPress={() => router.push(`/farm/${farm.id}/delete` as any)}
+                  style={styles.navBtn}>
+                  <Ionicons name="ellipsis-horizontal" size={20} color="white" />
+                </Pressable>
+              </View>
             </View>
             <View style={styles.heroBody}>
               <View style={styles.avatarBig}>
@@ -61,7 +100,10 @@ export default function FarmDetailScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.farmName}>{farm.name}</Text>
-                <Text style={styles.farmSub}>{farm.ownerName ?? 'Sem dono cadastrado'}</Text>
+                <Text style={styles.farmSub}>
+                  {farm.ownerName ?? 'Sem dono cadastrado'}
+                  {farm.sizeHa ? ` · ${farm.sizeHa} ha` : ''}
+                </Text>
                 {farm.ownerPhone ? (
                   <View style={styles.phoneChip}>
                     <Ionicons name="call-outline" size={12} color="white" />
@@ -74,23 +116,32 @@ export default function FarmDetailScreen() {
         </LinearGradient>
 
         <View style={styles.weekBar}>
-          <Pressable style={styles.arrow}>
+          <Pressable style={styles.arrow} onPress={() => setSelectedWeek(shiftWeek(selectedWeek, -1))}>
             <Ionicons name="chevron-back" size={14} color={colors.mata} />
           </Pressable>
-          <View style={styles.weekPill}>
-            <Text style={styles.weekPillLabel}>Semana {week.week}</Text>
-            <Text style={styles.weekPillDates}>{weekLabel(week)}</Text>
-          </View>
-          <Pressable style={styles.arrow}>
-            <Ionicons name="chevron-forward" size={14} color={colors.mata} />
+          <Pressable
+            style={styles.weekPill}
+            onPress={() => !isCurrentWeek && setSelectedWeek(todayWeek)}>
+            <Text style={styles.weekPillLabel}>Semana {selectedWeek.week}</Text>
+            <Text style={styles.weekPillDates}>{weekLabel(selectedWeek)}</Text>
           </Pressable>
-          <Pressable style={styles.calBtn}>
-            <Ionicons name="calendar-outline" size={16} color="white" />
+          <Pressable
+            style={[styles.arrow, isCurrentWeek && { opacity: 0.4 }]}
+            disabled={isCurrentWeek}
+            onPress={() => setSelectedWeek(shiftWeek(selectedWeek, 1))}>
+            <Ionicons name="chevron-forward" size={14} color={colors.mata} />
           </Pressable>
         </View>
 
+        {!isCurrentWeek ? (
+          <Pressable style={styles.todayChip} onPress={() => setSelectedWeek(todayWeek)}>
+            <Ionicons name="arrow-back" size={12} color={colors.mangaDeep} />
+            <Text style={styles.todayChipText}>voltar à semana atual</Text>
+          </Pressable>
+        ) : null}
+
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>Anotações da visita</Text>
+          <Text style={styles.sectionTitle}>Anotações</Text>
           <Pressable
             onPress={() => router.push(`/record?farmId=${farm.id}` as any)}
             style={styles.addBtn}>
@@ -103,14 +154,18 @@ export default function FarmDetailScreen() {
             <Ionicons name="leaf-outline" size={36} color={colors.broto} />
             <Text style={styles.emptyTitle}>Nenhuma anotação ainda</Text>
             <Text style={styles.emptySub}>
-              Comece gravando um áudio, tirando uma foto ou escrevendo uma observação.
+              {isCurrentWeek
+                ? 'Comece gravando um áudio, tirando uma foto ou escrevendo uma observação.'
+                : 'Nesta semana você não fez anotações nesta fazenda.'}
             </Text>
-            <Pressable
-              onPress={() => router.push(`/record?farmId=${farm.id}` as any)}
-              style={styles.emptyCta}>
-              <Ionicons name="mic" size={16} color="white" />
-              <Text style={styles.emptyCtaText}>Gravar visita</Text>
-            </Pressable>
+            {isCurrentWeek ? (
+              <Pressable
+                onPress={() => router.push(`/record?farmId=${farm.id}` as any)}
+                style={styles.emptyCta}>
+                <Ionicons name="mic" size={16} color="white" />
+                <Text style={styles.emptyCtaText}>Gravar visita</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : (
           <View style={styles.notesList}>
@@ -121,11 +176,40 @@ export default function FarmDetailScreen() {
         )}
 
         <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>Pagamento</Text>
+        </View>
+        <View style={{ paddingHorizontal: 20 }}>
+          <PaymentCard farm={farm} receivedMonth={receivedMonth} status={paymentStatus} />
+        </View>
+
+        <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>Calendário</Text>
         </View>
         <View style={{ paddingHorizontal: 20 }}>
-          <YearHeatmap year={week.year} currentWeek={week.week} weekLevels={new Map()} />
+          <YearHeatmap
+            year={selectedWeek.year}
+            currentWeek={selectedWeek.week}
+            weekLevels={weekLevels}
+            onWeekPress={(w) => setSelectedWeek({ year: selectedWeek.year, week: w })}
+          />
         </View>
+
+        {recentStats.length > 0 ? (
+          <>
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>Semanas recentes</Text>
+            </View>
+            <View style={styles.recentList}>
+              {recentStats.map((s) => (
+                <RecentWeekCard
+                  key={s.weekId}
+                  stat={s}
+                  onPress={() => setSelectedWeek({ year: s.year, week: s.week })}
+                />
+              ))}
+            </View>
+          </>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -172,7 +256,7 @@ const styles = StyleSheet.create({
   phoneText: { color: 'white', fontFamily: fonts.uiSemibold, fontSize: 11 },
   weekBar: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 20, paddingTop: 18, paddingBottom: 12,
+    paddingHorizontal: 20, paddingTop: 18, paddingBottom: 4,
   },
   arrow: {
     width: 38, height: 38, borderRadius: 19,
@@ -189,11 +273,15 @@ const styles = StyleSheet.create({
   },
   weekPillLabel: { fontFamily: fonts.display, fontSize: 16, color: colors.mata, letterSpacing: -0.3 },
   weekPillDates: { fontFamily: fonts.uiMedium, fontSize: 12, color: colors.ink3 },
-  calBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: colors.mata,
-    alignItems: 'center', justifyContent: 'center',
+  todayChip: {
+    alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 6,
+    backgroundColor: 'rgba(232,160,76,0.12)',
+    borderRadius: 999,
+    marginTop: 6,
   },
+  todayChipText: { fontFamily: fonts.uiSemibold, fontSize: 11, color: colors.mangaDeep },
   sectionHead: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 24, paddingTop: 22, paddingBottom: 14,
@@ -230,4 +318,5 @@ const styles = StyleSheet.create({
   },
   emptyCtaText: { color: 'white', fontFamily: fonts.uiSemibold, fontSize: 14 },
   notesList: { paddingHorizontal: 20, gap: 10 },
+  recentList: { paddingHorizontal: 20, gap: 8 },
 });

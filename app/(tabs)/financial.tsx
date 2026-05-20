@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { colors, farmColors } from '@/theme/colors';
@@ -13,6 +13,7 @@ import { initialsOf } from '@/lib/initials';
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
 export default function FinancialScreen() {
+  const router = useRouter();
   const today = new Date();
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear] = useState(today.getFullYear());
@@ -179,7 +180,7 @@ export default function FinancialScreen() {
         <View style={{ height: 140 }} />
       </ScrollView>
 
-      <Pressable style={styles.fab}>
+      <Pressable style={styles.fab} onPress={() => router.push('/register-payment' as any)}>
         <View style={styles.fabIcon}>
           <Ionicons name="add" size={14} color="white" />
         </View>

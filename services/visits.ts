@@ -17,6 +17,7 @@ export const visitsService = {
     week: Awaited<ReturnType<typeof weeksRepo.findOrCreate>>;
     farms: FarmWithStatus[];
     counts: { visited: number; skipped: number; pending: number; total: number };
+    visitedDays: number[];
   }> {
     const week = await weeksRepo.findOrCreate(ref);
     const farms = await farmsRepo.listActive();
@@ -37,10 +38,21 @@ export const visitsService = {
     const pending = result.filter((r) => r.status === 'pending').length;
     const total = farms.length - skippedC;
 
+    const visitedDays = Array.from(
+      new Set(
+        visits
+          .map((v) => {
+            const d = new Date(v.visitedDate);
+            return (d.getDay() + 6) % 7; // ISO day of week 0=Mon ... 6=Sun
+          })
+      )
+    );
+
     return {
       week,
       farms: result,
       counts: { visited, skipped: skippedC, pending, total },
+      visitedDays,
     };
   },
 

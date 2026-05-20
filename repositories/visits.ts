@@ -27,6 +27,10 @@ export const visitsRepo = {
   async listByWeek(weekId: number): Promise<Visit[]> {
     return db.select().from(visits).where(eq(visits.weekId, weekId));
   },
+
+  async listByFarm(farmId: number): Promise<Visit[]> {
+    return db.select().from(visits).where(eq(visits.farmId, farmId));
+  },
 };
 
 export const skippedRepo = {

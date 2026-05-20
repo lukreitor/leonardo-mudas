@@ -92,7 +92,16 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.papel } }}>
         <Stack.Screen name="auth" />
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="farm/[id]" options={{ presentation: 'card' }} />
+        <Stack.Screen name="farm/[id]/index" options={{ presentation: 'card' }} />
+        <Stack.Screen
+          name="farm/[id]/delete"
+          options={{ presentation: 'transparentModal', animation: 'fade', contentStyle: { backgroundColor: 'transparent' } }}
+        />
+        <Stack.Screen name="farm-edit" options={{ presentation: 'card' }} />
+        <Stack.Screen
+          name="register-payment"
+          options={{ presentation: 'transparentModal', animation: 'fade', contentStyle: { backgroundColor: 'transparent' } }}
+        />
         <Stack.Screen name="record" options={{ presentation: 'fullScreenModal' }} />
       </Stack>
       <StatusBar style="dark" />

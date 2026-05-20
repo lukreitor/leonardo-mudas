@@ -1,12 +1,15 @@
-import { useCallback, useState, useRef } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 
 import { WeekProgressCard } from '@/components/WeekProgressCard';
 import { WeekNav } from '@/components/WeekNav';
 import { FarmCard } from '@/components/FarmCard';
 import { UndoToast } from '@/components/UndoToast';
+import { HomeFab } from '@/components/HomeFab';
+import { Confetti } from '@/components/Confetti';
 
 import { visitsService, type FarmWithStatus } from '@/services/visits';
 import { currentWeek, formatDayLong } from '@/lib/date';
@@ -27,25 +30,39 @@ export default function HomeScreen() {
   const [data, setData] = useState<{
     farms: FarmWithStatus[];
     counts: { visited: number; skipped: number; pending: number; total: number };
+    visitedDays: number[];
   } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [undo, setUndo] = useState<UndoState>({ visible: false, message: '', farmId: null, prevStatus: null });
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [confettiShownForWeek, setConfettiShownForWeek] = useState<string | null>(null);
 
   const week = currentWeek();
+  const weekKey = `${week.year}-W${week.week}`;
   const todayIdx = (new Date().getDay() + 6) % 7;
 
   const load = useCallback(async () => {
     const result = await visitsService.getFarmsForWeek(week);
-    setData({ farms: result.farms, counts: result.counts });
+    setData({ farms: result.farms, counts: result.counts, visitedDays: result.visitedDays });
   }, [week]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  useEffect(() => {
+    if (!data) return;
+    const { visited, total } = data.counts;
+    if (total > 0 && visited === total && confettiShownForWeek !== weekKey) {
+      setShowConfetti(true);
+      setConfettiShownForWeek(weekKey);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  }, [data, weekKey, confettiShownForWeek]);
 
   const updateFarm = useCallback((farmId: number, nextStatus: FarmStatus) => {
     setData((prev) => {
       if (!prev) return prev;
       const farms = prev.farms.map((f) => (f.id === farmId ? { ...f, status: nextStatus } : f));
-      return { farms, counts: recalcCounts(farms) };
+      return { ...prev, farms, counts: recalcCounts(farms) };
     });
   }, []);
 
@@ -130,7 +147,7 @@ export default function HomeScreen() {
           />
         </View>
 
-        <WeekNav today={todayIdx} visitedDays={[todayIdx]} />
+        <WeekNav today={todayIdx} visitedDays={data.visitedDays} />
 
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>Suas fazendas</Text>
@@ -162,10 +179,14 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: 120 }} />
       </ScrollView>
 
+      <HomeFab onPress={() => router.push('/farm-edit?id=new' as any)} />
+
       <UndoToast visible={undo.visible} message={undo.message} onUndo={handleUndo} onDismiss={dismissUndo} />
+
+      <Confetti visible={showConfetti} onComplete={() => setShowConfetti(false)} />
     </View>
   );
 }
@@ -191,12 +212,8 @@ function recalcCounts(farms: FarmWithStatus[]): {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.papel },
   header: {
-    paddingHorizontal: 24,
-    paddingTop: 8,
-    paddingBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    paddingHorizontal: 24, paddingTop: 8, paddingBottom: 12,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
   },
   greeting: { fontFamily: fonts.uiMedium, fontSize: 13, color: colors.ink3, letterSpacing: 0.2 },
   date: {

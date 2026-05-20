@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedProps,
   withSpring,
   withTiming,
   withSequence,
@@ -12,6 +13,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 import { colors, shadows } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
@@ -69,7 +72,12 @@ export function FarmCard({ name, meta, avatarColor, initials, status, onTap, onL
 
   const tickStyle = useAnimatedStyle(() => ({
     opacity: tickProgress.value,
-    transform: [{ scale: tickProgress.value }],
+    transform: [{ scale: 0.6 + tickProgress.value * 0.4 }],
+  }));
+
+  const TICK_PATH_LENGTH = 18;
+  const tickPathProps = useAnimatedProps(() => ({
+    strokeDashoffset: TICK_PATH_LENGTH * (1 - tickProgress.value),
   }));
 
   const cardBgStyle = useAnimatedStyle(() => {
@@ -104,7 +112,16 @@ export function FarmCard({ name, meta, avatarColor, initials, status, onTap, onL
         {status === 'visited' ? (
           <Animated.View style={[styles.tickWrap, tickStyle]}>
             <Svg width={18} height={18} viewBox="0 0 16 16">
-              <Path d="M3 8 L7 12 L13 5" stroke="white" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <AnimatedPath
+                d="M3 8 L7 12 L13 5"
+                stroke="white"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+                strokeDasharray={TICK_PATH_LENGTH}
+                animatedProps={tickPathProps}
+              />
             </Svg>
           </Animated.View>
         ) : status === 'pending' ? (

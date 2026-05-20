@@ -1,13 +1,14 @@
 import { View, Text, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { useAuthStore } from '@/stores/auth';
 import { authService } from '@/services/auth';
+import { exportService } from '@/services/export';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -15,6 +16,8 @@ export default function ProfileScreen() {
   const signOut = useAuthStore((s) => s.signOut);
   const [bioEnabled, setBioEnabled] = useState(false);
   const [bioAvailable, setBioAvailable] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [backupping, setBackupping] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -38,6 +41,33 @@ export default function ProfileScreen() {
     await authService.setBiometricEnabled(next);
     setBioEnabled(next);
   };
+
+  const handleExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      await exportService.shareWeekSummary({
+        includeText: true,
+        includeAudio: true,
+        includePhoto: true,
+        includeVideo: true,
+      });
+    } catch (err: any) {
+      Alert.alert('Erro', err?.message ?? 'Não foi possível exportar');
+    } finally {
+      setExporting(false);
+    }
+  }, []);
+
+  const handleBackup = useCallback(async () => {
+    setBackupping(true);
+    try {
+      await exportService.backupAll();
+    } catch (err: any) {
+      Alert.alert('Erro', err?.message ?? 'Não foi possível fazer backup');
+    } finally {
+      setBackupping(false);
+    }
+  }, []);
 
   const handleSignOut = () => {
     Alert.alert('Sair', 'Tem certeza?', [
@@ -93,24 +123,28 @@ export default function ProfileScreen() {
             </View>
           </Pressable>
 
-          <Pressable style={styles.row}>
+          <Pressable style={styles.row} onPress={handleExport} disabled={exporting}>
             <View style={[styles.rowIcon, { backgroundColor: 'rgba(232,160,76,0.15)' }]}>
               <Ionicons name="share-outline" size={18} color={colors.mangaDeep} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.rowLabel}>Exportar dados</Text>
-              <Text style={styles.rowSub}>WhatsApp ou arquivo ZIP</Text>
+              <Text style={styles.rowSub}>
+                {exporting ? 'Gerando resumo...' : 'WhatsApp, e-mail ou arquivo'}
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.ink4} />
           </Pressable>
 
-          <Pressable style={styles.row}>
+          <Pressable style={styles.row} onPress={handleBackup} disabled={backupping}>
             <View style={[styles.rowIcon, { backgroundColor: 'rgba(26,58,46,0.08)' }]}>
               <Ionicons name="archive-outline" size={18} color={colors.mata} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.rowLabel}>Backup completo</Text>
-              <Text style={styles.rowSub}>.sqlite + mídias</Text>
+              <Text style={styles.rowSub}>
+                {backupping ? 'Copiando banco...' : '.sqlite com todos dados'}
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.ink4} />
           </Pressable>
@@ -148,8 +182,7 @@ const styles = StyleSheet.create({
     padding: 18,
     backgroundColor: colors.neblina,
     borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(26,58,46,0.04)',
+    borderWidth: 1, borderColor: 'rgba(26,58,46,0.04)',
     marginBottom: 16,
   },
   avatar: {
@@ -166,8 +199,7 @@ const styles = StyleSheet.create({
     padding: 14,
     backgroundColor: colors.neblina,
     borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(26,58,46,0.04)',
+    borderWidth: 1, borderColor: 'rgba(26,58,46,0.04)',
   },
   rowIcon: {
     width: 36, height: 36, borderRadius: 12,
