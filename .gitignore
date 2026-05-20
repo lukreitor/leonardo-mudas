@@ -32,6 +32,9 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
+secrets.local.ts
+secrets.local.js
 
 # typescript
 *.tsbuildinfo

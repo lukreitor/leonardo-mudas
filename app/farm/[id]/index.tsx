@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,6 +18,10 @@ import { YearHeatmap } from '@/components/YearHeatmap';
 import { PaymentCard } from '@/components/PaymentCard';
 import { RecentWeekCard } from '@/components/RecentWeekCard';
 import { EmptyIllustration } from '@/components/EmptyIllustration';
+import { MediaViewer } from '@/components/MediaViewer';
+import { EditNoteSheet } from '@/components/EditNoteSheet';
+import { notesRepo, mediaRepo } from '@/repositories/notes';
+import type { Media } from '@/db/schema';
 import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { initialsOf } from '@/lib/initials';
@@ -34,6 +38,8 @@ export default function FarmDetailScreen() {
   const [receivedMonth, setReceivedMonth] = useState(0);
   const [paymentStatus, setPaymentStatus] = useState<'paid' | 'pending' | 'overdue' | 'none'>('none');
   const [visitedAt, setVisitedAt] = useState<string | null>(null);
+  const [viewerMedia, setViewerMedia] = useState<Media | null>(null);
+  const [editingNote, setEditingNote] = useState<NoteWithMedia | null>(null);
 
   const todayWeek = useMemo(() => currentWeek(), []);
   const isCurrentWeek = selectedWeek.year === todayWeek.year && selectedWeek.week === todayWeek.week;
@@ -200,6 +206,21 @@ export default function FarmDetailScreen() {
                   onAddAudio={isCurrentWeek ? () => router.push(`/record?farmId=${farm.id}&mode=audio` as any) : undefined}
                   onAddVideo={isCurrentWeek ? () => router.push(`/record?farmId=${farm.id}&mode=video` as any) : undefined}
                   onAddText={isCurrentWeek ? () => router.push(`/record?farmId=${farm.id}&mode=text` as any) : undefined}
+                  onOpenMedia={(m) => setViewerMedia(m)}
+                  onDeleteMedia={(m) =>
+                    Alert.alert('Apagar mídia?', 'Esta foto/áudio/vídeo será removida.', [
+                      { text: 'Cancelar', style: 'cancel' },
+                      {
+                        text: 'Apagar',
+                        style: 'destructive',
+                        onPress: async () => {
+                          await mediaRepo.delete(m.id);
+                          load();
+                        },
+                      },
+                    ])
+                  }
+                  onEditText={isCurrentWeek ? () => setEditingNote(n) : undefined}
                 />
               ))}
             </View>
@@ -252,6 +273,45 @@ export default function FarmDetailScreen() {
           </>
         ) : null}
       </ScrollView>
+
+      <MediaViewer
+        visible={viewerMedia !== null}
+        type={(viewerMedia?.type === 'photo' || viewerMedia?.type === 'video') ? viewerMedia.type : null}
+        uri={viewerMedia?.filePath ?? null}
+        onDismiss={() => setViewerMedia(null)}
+        onDelete={
+          viewerMedia
+            ? () => {
+                const m = viewerMedia;
+                Alert.alert('Apagar mídia?', 'Esta foto/vídeo será removida.', [
+                  { text: 'Cancelar', style: 'cancel' },
+                  {
+                    text: 'Apagar',
+                    style: 'destructive',
+                    onPress: async () => {
+                      await mediaRepo.delete(m.id);
+                      setViewerMedia(null);
+                      load();
+                    },
+                  },
+                ]);
+              }
+            : undefined
+        }
+      />
+
+      <EditNoteSheet
+        visible={editingNote !== null}
+        initialTitle={editingNote?.title ?? ''}
+        initialText={editingNote?.noteText ?? ''}
+        onDismiss={() => setEditingNote(null)}
+        onSave={async (title, text) => {
+          if (editingNote) {
+            await notesRepo.update(editingNote.id, { title: title || undefined, noteText: text || undefined });
+            load();
+          }
+        }}
+      />
     </View>
   );
 }

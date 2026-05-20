@@ -1,12 +1,13 @@
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, Pressable, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO } from 'date-fns';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import type { NoteWithMedia } from '@/services/notes';
-
-type ChipAction = { label: string; onPress?: () => void };
+import type { Media } from '@/db/schema';
 
 const KIND_META: Record<string, { color: string; icon: string }> = {
   growth: { color: colors.broto, icon: 'leaf-outline' },
@@ -16,6 +17,56 @@ const KIND_META: Record<string, { color: string; icon: string }> = {
   other: { color: colors.broto, icon: 'ellipse-outline' },
 };
 
+function AudioRow({ media }: { media: Media }) {
+  const player = useAudioPlayer(media.filePath);
+  const status = useAudioPlayerStatus(player);
+  const isPlaying = status?.playing ?? false;
+
+  const onToggle = () => {
+    if (isPlaying) {
+      player.pause();
+    } else {
+      if (status?.didJustFinish || (status?.currentTime ?? 0) >= (status?.duration ?? 0)) {
+        player.seekTo(0);
+      }
+      player.play();
+    }
+  };
+
+  const total = status?.duration ?? media.durationSec ?? 0;
+  const current = status?.currentTime ?? 0;
+  const progress = total > 0 ? current / total : 0;
+
+  return (
+    <Pressable onPress={onToggle} style={styles.audioRow}>
+      <View style={styles.audioPlay}>
+        <Ionicons name={isPlaying ? 'pause' : 'play'} size={11} color="white" />
+      </View>
+      <View style={styles.miniWave}>
+        {Array.from({ length: 24 }).map((_, i) => {
+          const played = i / 24 < progress;
+          return (
+            <View
+              key={i}
+              style={[
+                styles.waveBar,
+                {
+                  height: 6 + Math.sin(i * 0.7) * 4 + Math.abs(Math.sin(i * 1.3)) * 6,
+                  backgroundColor: played ? colors.mata : colors.mangaDeep,
+                  opacity: played ? 1 : 0.5,
+                },
+              ]}
+            />
+          );
+        })}
+      </View>
+      <Text style={styles.audioTime}>
+        {formatDuration(current)} / {formatDuration(total)}
+      </Text>
+    </Pressable>
+  );
+}
+
 export function NoteBlock({
   note,
   onPress,
@@ -23,6 +74,9 @@ export function NoteBlock({
   onAddAudio,
   onAddVideo,
   onAddText,
+  onOpenMedia,
+  onDeleteMedia,
+  onEditText,
 }: {
   note: NoteWithMedia;
   onPress?: () => void;
@@ -30,6 +84,9 @@ export function NoteBlock({
   onAddAudio?: () => void;
   onAddVideo?: () => void;
   onAddText?: () => void;
+  onOpenMedia?: (m: Media) => void;
+  onDeleteMedia?: (m: Media) => void;
+  onEditText?: () => void;
 }) {
   const meta = KIND_META[note.kind ?? 'other'];
   const time = note.createdAt ? format(parseISO(note.createdAt), 'HH:mm') : '';
@@ -45,7 +102,7 @@ export function NoteBlock({
   if (onAddText && !note.noteText) chips.push({ label: 'texto', icon: 'create-outline', onPress: onAddText });
 
   return (
-    <Pressable onPress={onPress} style={[styles.card, { borderLeftColor: meta.color }]}>
+    <View style={[styles.card, { borderLeftColor: meta.color }]}>
       <View style={styles.head}>
         <View style={styles.titleWrap}>
           <View style={[styles.iconPill, { backgroundColor: hexAlpha(meta.color, 0.15) }]}>
@@ -61,8 +118,13 @@ export function NoteBlock({
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.mediaRow}>
-          {[...photos, ...videos].slice(0, 8).map((m, i) => (
-            <View key={m.id} style={styles.thumb}>
+          {[...photos, ...videos].map((m) => (
+            <Pressable
+              key={m.id}
+              onPress={() => onOpenMedia?.(m)}
+              onLongPress={() => onDeleteMedia?.(m)}
+              delayLongPress={500}
+              style={styles.thumb}>
               {m.type === 'photo' ? (
                 <Image source={{ uri: m.filePath }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
               ) : (
@@ -72,39 +134,25 @@ export function NoteBlock({
                   </View>
                 </View>
               )}
-              {i === 7 && note.media.length > 8 ? (
-                <View style={styles.moreBadge}>
-                  <Text style={styles.moreText}>+{note.media.length - 8}</Text>
-                </View>
-              ) : null}
-            </View>
+            </Pressable>
           ))}
         </ScrollView>
       ) : null}
 
       {audios.map((a) => (
-        <View key={a.id} style={styles.audioRow}>
-          <View style={styles.audioPlay}>
-            <Ionicons name="play" size={10} color="white" />
-          </View>
-          <View style={styles.miniWave}>
-            {Array.from({ length: 24 }).map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.waveBar,
-                  { height: 6 + Math.sin(i * 0.7) * 4 + Math.abs(Math.sin(i * 1.3)) * 6 },
-                ]}
-              />
-            ))}
-          </View>
-          <Text style={styles.audioTime}>
-            {a.durationSec ? formatDuration(a.durationSec) : '0:00'}
-          </Text>
-        </View>
+        <AudioRow key={a.id} media={a} />
       ))}
 
-      {note.noteText ? <Text style={styles.body}>“{note.noteText}”</Text> : null}
+      {note.noteText ? (
+        <Pressable onPress={onEditText} style={styles.textWrap}>
+          <Text style={styles.body}>"{note.noteText}"</Text>
+          {onEditText ? (
+            <View style={styles.editIcon}>
+              <Ionicons name="create-outline" size={11} color={colors.ink3} />
+            </View>
+          ) : null}
+        </Pressable>
+      ) : null}
 
       {chips.length > 0 ? (
         <View style={styles.chipsRow}>
@@ -116,7 +164,7 @@ export function NoteBlock({
           ))}
         </View>
       ) : null}
-    </Pressable>
+    </View>
   );
 }
 
@@ -161,13 +209,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.9)',
     alignItems: 'center', justifyContent: 'center',
   },
-  moreBadge: {
-    position: 'absolute',
-    inset: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  moreText: { color: 'white', fontFamily: fonts.displayBold, fontSize: 18 },
   audioRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: 12, paddingVertical: 9,
@@ -181,11 +222,20 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   miniWave: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 1.5, height: 22 },
-  waveBar: { width: 2, backgroundColor: colors.mangaDeep, opacity: 0.6, borderRadius: 1 },
-  audioTime: { fontFamily: fonts.uiSemibold, fontSize: 11, color: colors.ink2 },
+  waveBar: { width: 2, borderRadius: 1 },
+  audioTime: { fontFamily: fonts.uiSemibold, fontSize: 11, color: colors.ink2, fontVariant: ['tabular-nums'] },
+  textWrap: { position: 'relative', paddingRight: 24 },
   body: {
     fontFamily: fonts.displayItalic, fontStyle: 'italic',
     fontSize: 14, color: colors.ink1, lineHeight: 22,
+  },
+  editIcon: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: 'rgba(26,58,46,0.06)',
+    alignItems: 'center', justifyContent: 'center',
   },
   chipsRow: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 6,

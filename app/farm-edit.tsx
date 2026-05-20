@@ -4,8 +4,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+// styles incluem gpsBtn (declarados abaixo)
 
 import { farmsRepo } from '@/repositories/farms';
+import { locationService } from '@/services/location';
 import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import type { Farm } from '@/db/schema';
@@ -36,6 +38,9 @@ export default function FarmEditScreen() {
   const [ownerPhone, setOwnerPhone] = useState('');
   const [address, setAddress] = useState('');
   const [sizeHa, setSizeHa] = useState('');
+  const [lat, setLat] = useState('');
+  const [lng, setLng] = useState('');
+  const [fetchingGps, setFetchingGps] = useState(false);
   const [notes, setNotes] = useState('');
   const [colorToken, setColorToken] = useState(farmColors[0]);
   const [paymentType, setPaymentType] = useState<PaymentType>('none');
@@ -57,6 +62,8 @@ export default function FarmEditScreen() {
         setOwnerPhone(f.ownerPhone ?? '');
         setAddress(f.address ?? '');
         setSizeHa(f.sizeHa ? String(f.sizeHa) : '');
+        setLat(f.lat != null ? String(f.lat) : '');
+        setLng(f.lng != null ? String(f.lng) : '');
         setNotes(f.notes ?? '');
         setColorToken(f.colorToken ?? farmColors[0]);
         setPaymentType((f.paymentType ?? 'none') as PaymentType);
@@ -88,6 +95,8 @@ export default function FarmEditScreen() {
         ownerPhone: ownerPhone.trim() || null,
         address: address.trim() || null,
         sizeHa: sizeHa ? parseFloat(sizeHa.replace(',', '.')) : null,
+        lat: lat ? parseFloat(lat.replace(',', '.')) : null,
+        lng: lng ? parseFloat(lng.replace(',', '.')) : null,
         notes: notes.trim() || null,
         colorToken,
         paymentType,
@@ -112,10 +121,34 @@ export default function FarmEditScreen() {
       setSubmitting(false);
     }
   }, [
-    editing, id, name, ownerName, ownerPhone, address, sizeHa, notes, colorToken,
+    editing, id, name, ownerName, ownerPhone, address, sizeHa, lat, lng, notes, colorToken,
     paymentType, visitAmount, monthlyAmount, monthlyDueDay, commissionPct, visitFrequency,
+    visitWeekOfMonth, visitBiweeklyParity,
     showVisit, showMonthly, showCommission, router,
   ]);
+
+  const fetchGps = useCallback(async () => {
+    setFetchingGps(true);
+    try {
+      const has = await locationService.hasPermission();
+      if (!has) {
+        const granted = await locationService.requestPermission();
+        if (!granted) {
+          Alert.alert('Permissão negada', 'Permita localização nas configurações.');
+          return;
+        }
+      }
+      const pos = await locationService.getCurrent();
+      if (pos) {
+        setLat(pos.lat.toFixed(6));
+        setLng(pos.lng.toFixed(6));
+      } else {
+        Alert.alert('Sem sinal', 'Não foi possível pegar localização. Tente em área aberta.');
+      }
+    } finally {
+      setFetchingGps(false);
+    }
+  }, []);
 
   return (
     <View style={styles.root}>
@@ -156,6 +189,31 @@ export default function FarmEditScreen() {
             <Field label="Telefone" value={ownerPhone} onChangeText={setOwnerPhone} placeholder="(87) 9 9999-9999" keyboardType="phone-pad" />
             <Field label="Endereço" value={address} onChangeText={setAddress} placeholder="Localização" />
             <Field label="Tamanho (ha)" value={sizeHa} onChangeText={setSizeHa} placeholder="ex: 14" keyboardType="decimal-pad" />
+          </Section>
+
+          <Section title="Localização GPS (opcional)">
+            <Pressable
+              onPress={fetchGps}
+              disabled={fetchingGps}
+              style={[styles.gpsBtn, fetchingGps && { opacity: 0.6 }]}>
+              <Ionicons name="location-outline" size={16} color={colors.broto} />
+              <Text style={styles.gpsBtnText}>
+                {fetchingGps ? 'Pegando posição...' : 'Usar minha posição atual'}
+              </Text>
+            </Pressable>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Field label="Latitude" value={lat} onChangeText={setLat} placeholder="-9.3856" keyboardType="numbers-and-punctuation" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Field label="Longitude" value={lng} onChangeText={setLng} placeholder="-40.5067" keyboardType="numbers-and-punctuation" />
+              </View>
+            </View>
+            {lat && lng ? (
+              <Text style={styles.gpsHint}>
+                ✓ Aparecerá no mapa e em sugestões quando estiver próximo
+              </Text>
+            ) : null}
           </Section>
 
           <Section title="Pagamento">
@@ -347,4 +405,28 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3, shadowRadius: 20, elevation: 6,
   },
   saveText: { color: 'white', fontFamily: fonts.uiSemibold, fontSize: 16 },
+  gpsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 12,
+    backgroundColor: 'rgba(74,124,89,0.08)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(74,124,89,0.2)',
+    marginBottom: 12,
+  },
+  gpsBtnText: {
+    fontFamily: fonts.uiSemibold,
+    fontSize: 13,
+    color: colors.broto,
+  },
+  gpsHint: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 11,
+    color: colors.broto,
+    marginTop: 4,
+  },
 });
