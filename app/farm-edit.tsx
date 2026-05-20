@@ -44,6 +44,8 @@ export default function FarmEditScreen() {
   const [monthlyDueDay, setMonthlyDueDay] = useState('5');
   const [commissionPct, setCommissionPct] = useState('');
   const [visitFrequency, setVisitFrequency] = useState<VisitFrequency>('weekly');
+  const [visitWeekOfMonth, setVisitWeekOfMonth] = useState<number>(1);
+  const [visitBiweeklyParity, setVisitBiweeklyParity] = useState<'odd' | 'even'>('odd');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -63,6 +65,8 @@ export default function FarmEditScreen() {
         setMonthlyDueDay(f.monthlyDueDay ? String(f.monthlyDueDay) : '5');
         setCommissionPct(f.commissionPct ? String(f.commissionPct) : '');
         setVisitFrequency((f.visitFrequency ?? 'weekly') as VisitFrequency);
+        if (f.visitWeekOfMonth) setVisitWeekOfMonth(f.visitWeekOfMonth);
+        if (f.visitBiweeklyParity) setVisitBiweeklyParity(f.visitBiweeklyParity as 'odd' | 'even');
       });
     }
   }, [editing, id]);
@@ -92,6 +96,8 @@ export default function FarmEditScreen() {
         monthlyDueDay: showMonthly ? parseInt(monthlyDueDay, 10) : null,
         commissionPct: showCommission && commissionPct ? parseFloat(commissionPct.replace(',', '.')) : null,
         visitFrequency,
+        visitWeekOfMonth: visitFrequency === 'monthly' ? visitWeekOfMonth : null,
+        visitBiweeklyParity: visitFrequency === 'biweekly' ? visitBiweeklyParity : null,
       };
       if (editing) {
         await farmsRepo.update(Number(id), data as any);
@@ -194,6 +200,44 @@ export default function FarmEditScreen() {
                 </Pressable>
               ))}
             </View>
+            {visitFrequency === 'monthly' ? (
+              <View style={{ marginTop: 14 }}>
+                <Text style={styles.fieldLabel}>Qual semana do mês?</Text>
+                <View style={styles.chipsRow}>
+                  {[1, 2, 3, 4, 5].map((w) => (
+                    <Pressable
+                      key={w}
+                      onPress={() => setVisitWeekOfMonth(w)}
+                      style={[styles.chip, visitWeekOfMonth === w && styles.chipActive]}>
+                      <Text style={[styles.chipText, visitWeekOfMonth === w && styles.chipTextActive]}>
+                        {w === 5 ? 'última' : `${w}ª`}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+            {visitFrequency === 'biweekly' ? (
+              <View style={{ marginTop: 14 }}>
+                <Text style={styles.fieldLabel}>Semanas pares ou ímpares?</Text>
+                <View style={styles.chipsRow}>
+                  <Pressable
+                    onPress={() => setVisitBiweeklyParity('odd')}
+                    style={[styles.chip, visitBiweeklyParity === 'odd' && styles.chipActive]}>
+                    <Text style={[styles.chipText, visitBiweeklyParity === 'odd' && styles.chipTextActive]}>
+                      ímpares (1, 3, 5...)
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setVisitBiweeklyParity('even')}
+                    style={[styles.chip, visitBiweeklyParity === 'even' && styles.chipActive]}>
+                    <Text style={[styles.chipText, visitBiweeklyParity === 'even' && styles.chipTextActive]}>
+                      pares (2, 4, 6...)
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
           </Section>
 
           <Section title="Observações">

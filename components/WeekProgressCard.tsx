@@ -23,9 +23,10 @@ type Props = {
   weekLabel?: string;
   onPrev?: () => void;
   onNext?: () => void;
+  onSpeak?: () => void;
 };
 
-export function WeekProgressCard({ visited, total, weekNumber, pendingCount, weekLabel, onPrev, onNext }: Props) {
+export function WeekProgressCard({ visited, total, weekNumber, pendingCount, weekLabel, onPrev, onNext, onSpeak }: Props) {
   const progress = total === 0 ? 0 : visited / total;
   const pct = Math.round(progress * 100);
 
@@ -80,7 +81,14 @@ export function WeekProgressCard({ visited, total, weekNumber, pendingCount, wee
       </View>
 
       <View style={styles.topRow}>
-        <Text style={styles.label}>Esta semana</Text>
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>Esta semana</Text>
+          {onSpeak ? (
+            <Pressable onPress={onSpeak} hitSlop={8} style={styles.speakBtn}>
+              <Ionicons name="volume-medium" size={12} color={colors.mangaSoft} />
+            </Pressable>
+          ) : null}
+        </View>
         <View style={styles.weekNav}>
           {onPrev ? (
             <Pressable onPress={onPrev} style={styles.weekArrow} hitSlop={8}>
@@ -182,12 +190,18 @@ const styles = StyleSheet.create({
     position: 'relative',
     zIndex: 2,
   },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   label: {
     color: 'rgba(255,255,255,0.7)',
     fontFamily: fonts.uiSemibold,
     fontSize: 12,
     letterSpacing: 1.4,
     textTransform: 'uppercase',
+  },
+  speakBtn: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center', justifyContent: 'center',
   },
   weekNav: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   weekArrow: {

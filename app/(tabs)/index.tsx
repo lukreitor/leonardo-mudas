@@ -14,6 +14,8 @@ import { Confetti } from '@/components/Confetti';
 import { AmbientBg } from '@/components/AmbientBg';
 
 import { visitsService, type FarmWithStatus } from '@/services/visits';
+import { speakWeekSummary } from '@/lib/voice';
+import { paymentsService } from '@/services/payments';
 import { currentWeek, formatDayLong, shiftWeek, type WeekRef } from '@/lib/date';
 import { initialsOf } from '@/lib/initials';
 import { colors, farmColors } from '@/theme/colors';
@@ -163,6 +165,12 @@ export default function HomeScreen() {
             weekLabel={isCurrent ? `Semana ${selectedWeek.week}` : isFuture ? `Próx · Sem ${selectedWeek.week}` : `Sem ${selectedWeek.week}`}
             onPrev={goPrev}
             onNext={goNext}
+            onSpeak={async () => {
+              const today = new Date();
+              const summary = await paymentsService.monthlySummary(today.getFullYear(), today.getMonth() + 1);
+              const overdueCount = summary.byFarm.filter((b) => b.status === 'overdue').length;
+              await speakWeekSummary(data.counts.visited, data.counts.total, overdueCount);
+            }}
           />
         </View>
 

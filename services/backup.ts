@@ -27,45 +27,36 @@ export const backupService = {
     const dbInfo = await FileSystem.getInfoAsync(SQLITE_PATH);
     if (!dbInfo.exists) throw new Error('Banco não encontrado');
 
-    const exportDir = `${FileSystem.cacheDirectory}export-${Date.now()}/`;
-    await FileSystem.makeDirectoryAsync(exportDir, { intermediates: true });
-    await FileSystem.makeDirectoryAsync(`${exportDir}media`, { intermediates: true });
-
-    const dbCopy = `${exportDir}leonardo-mudas.db`;
-    await FileSystem.copyAsync({ from: SQLITE_PATH, to: dbCopy });
-
-    const cacheMedia = `${FileSystem.cacheDirectory}`;
-    const cacheList = await FileSystem.readDirectoryAsync(cacheMedia).catch(() => [] as string[]);
-    let copied = 0;
-    for (const file of cacheList) {
-      if (file.match(/\.(m4a|mp4|jpg|jpeg|png|wav)$/i)) {
-        try {
-          await FileSystem.copyAsync({
-            from: `${cacheMedia}${file}`,
-            to: `${exportDir}media/${file}`,
-          });
-          copied++;
-        } catch {
-          // skip individual file errors
-        }
-      }
+    const mediaDir = `${FileSystem.documentDirectory}media/`;
+    const mediaInfo = await FileSystem.getInfoAsync(mediaDir);
+    let mediaCount = 0;
+    if (mediaInfo.exists) {
+      const list = await FileSystem.readDirectoryAsync(mediaDir).catch(() => [] as string[]);
+      mediaCount = list.length;
     }
-
-    const manifest = {
-      app: 'Leonardo Mudas',
-      exportedAt: new Date().toISOString(),
-      database: 'leonardo-mudas.db',
-      mediaFilesCopied: copied,
-    };
-    await FileSystem.writeAsStringAsync(`${exportDir}manifest.json`, JSON.stringify(manifest, null, 2));
 
     const available = await Sharing.isAvailableAsync();
     if (available) {
-      await Sharing.shareAsync(dbCopy, {
+      await Sharing.shareAsync(SQLITE_PATH, {
         mimeType: 'application/x-sqlite3',
-        dialogTitle: `Backup Leonardo Mudas (DB + ${copied} mídias)`,
+        dialogTitle: `Backup Leonardo Mudas (DB · ${mediaCount} mídias em /media)`,
       });
     }
+  },
+
+  async restoreFromBackup(sourceUri: string): Promise<void> {
+    const info = await FileSystem.getInfoAsync(sourceUri);
+    if (!info.exists) throw new Error('Arquivo não encontrado');
+
+    await this.ensureBackupDir();
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const safetyBackup = `${BACKUP_DIR}before-restore-${stamp}.sqlite`;
+    const dbInfo = await FileSystem.getInfoAsync(SQLITE_PATH);
+    if (dbInfo.exists) {
+      await FileSystem.copyAsync({ from: SQLITE_PATH, to: safetyBackup });
+    }
+
+    await FileSystem.copyAsync({ from: sourceUri, to: SQLITE_PATH });
   },
 
   async listBackups(): Promise<string[]> {

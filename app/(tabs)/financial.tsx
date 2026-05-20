@@ -11,6 +11,7 @@ import { fonts } from '@/theme/typography';
 import { paymentsService, formatStructure, type MonthlySummary } from '@/services/payments';
 import { initialsOf } from '@/lib/initials';
 import { Sparkline } from '@/components/Sparkline';
+import { AmbientBg } from '@/components/AmbientBg';
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
@@ -43,7 +44,8 @@ export default function FinancialScreen() {
 
   return (
     <View style={styles.root}>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.papel }}>
+      <AmbientBg variant="soft" />
+      <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
         <View style={styles.header}>
           <View style={styles.titleRow}>
             <Text style={styles.title}>Financeiro</Text>

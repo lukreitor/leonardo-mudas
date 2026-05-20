@@ -26,6 +26,15 @@ import { RecordWaveform } from '@/components/RecordWaveform';
 import type { Farm } from '@/db/schema';
 
 type Mode = 'audio' | 'photo' | 'video' | 'text';
+type Kind = 'growth' | 'water' | 'soil' | 'talk' | 'other';
+
+const KIND_OPTIONS: { value: Kind; label: string; icon: string }[] = [
+  { value: 'growth', label: 'Broto', icon: 'leaf-outline' },
+  { value: 'water', label: 'Molhação', icon: 'water-outline' },
+  { value: 'soil', label: 'Solo', icon: 'flower-outline' },
+  { value: 'talk', label: 'Conversa', icon: 'mic-outline' },
+  { value: 'other', label: 'Outro', icon: 'ellipse-outline' },
+];
 
 export default function RecordScreen() {
   const router = useRouter();
@@ -38,6 +47,7 @@ export default function RecordScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [textNote, setTextNote] = useState('');
   const [title, setTitle] = useState('');
+  const [kind, setKind] = useState<Kind>('growth');
 
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const tickerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -112,7 +122,7 @@ export default function RecordScreen() {
         router.back();
         return;
       }
-      const note = await notesService.createNote(farmIdNum, { title: title || 'Áudio', kind: 'talk' });
+      const note = await notesService.createNote(farmIdNum, { title: title || 'Áudio', kind: kind === 'other' ? 'talk' : kind });
       await notesService.addMedia(note.id, { type: 'audio', filePath: uri, durationSec: elapsed });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
@@ -131,7 +141,7 @@ export default function RecordScreen() {
     const result = await ImagePicker.launchCameraAsync({ quality: 0.85, allowsEditing: false });
     if (result.canceled || !result.assets[0]) return;
 
-    const note = await notesService.createNote(farmIdNum, { title: title || 'Foto', kind: 'growth' });
+    const note = await notesService.createNote(farmIdNum, { title: title || 'Foto', kind });
     await notesService.addMedia(note.id, { type: 'photo', filePath: result.assets[0].uri });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.back();
@@ -150,7 +160,7 @@ export default function RecordScreen() {
     });
     if (result.canceled || !result.assets[0]) return;
 
-    const note = await notesService.createNote(farmIdNum, { title: title || 'Vídeo', kind: 'growth' });
+    const note = await notesService.createNote(farmIdNum, { title: title || 'Vídeo', kind });
     await notesService.addMedia(note.id, {
       type: 'video',
       filePath: result.assets[0].uri,
@@ -167,7 +177,7 @@ export default function RecordScreen() {
     }
     await notesService.createNote(farmIdNum, {
       title: title || 'Anotação',
-      kind: 'other',
+      kind,
       noteText: textNote.trim(),
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -271,6 +281,17 @@ export default function RecordScreen() {
             placeholderTextColor="rgba(255,255,255,0.35)"
             style={styles.titleInput}
           />
+          <View style={styles.kindRow}>
+            {KIND_OPTIONS.map((k) => (
+              <Pressable
+                key={k.value}
+                onPress={() => setKind(k.value)}
+                style={[styles.kindChip, kind === k.value && styles.kindChipActive]}>
+                <Ionicons name={k.icon as any} size={11} color={kind === k.value ? colors.mata : 'rgba(255,255,255,0.6)'} />
+                <Text style={[styles.kindChipText, kind === k.value && styles.kindChipTextActive]}>{k.label}</Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
 
         {/* Waveform absolute bottom 220 */}
@@ -446,6 +467,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.1)',
   },
+  kindRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  kindChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 5,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 999,
+  },
+  kindChipActive: { backgroundColor: 'white' },
+  kindChipText: {
+    fontFamily: fonts.uiSemibold,
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.6)',
+    letterSpacing: 0.3,
+  },
+  kindChipTextActive: { color: '#1A3A2E' },
 
   wavefAbs: {
     position: 'absolute',

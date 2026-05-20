@@ -22,6 +22,7 @@ import {
 import { useDbMigrations } from '@/db/migrate';
 import { runSeedIfNeeded } from '@/services/seed';
 import { maintenanceService } from '@/services/maintenance';
+import { notificationsService } from '@/services/notifications';
 import { useAuthStore } from '@/stores/auth';
 import { useSettings } from '@/stores/settings';
 import { colors } from '@/theme/colors';
@@ -55,6 +56,8 @@ export default function RootLayout() {
       (async () => {
         await runSeedIfNeeded();
         await maintenanceService.runStartupChecks();
+        notificationsService.scheduleDailySummary().catch(() => {});
+        notificationsService.fireOverdueAlerts().catch(() => {});
         setSeeded(true);
       })();
     }

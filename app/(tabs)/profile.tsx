@@ -12,6 +12,7 @@ import { authService } from '@/services/auth';
 import { exportService } from '@/services/export';
 import { backupService } from '@/services/backup';
 import { runDateTests } from '@/lib/date.test';
+import { AmbientBg } from '@/components/AmbientBg';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -97,7 +98,8 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.root}>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.papel }}>
+      <AmbientBg variant="soft" />
+      <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
         <View style={styles.header}>
           <Text style={styles.title}>Perfil</Text>
         </View>

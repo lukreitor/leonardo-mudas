@@ -71,12 +71,22 @@ export const visitsService = {
 
     if (farm.paymentType === 'visit' || farm.paymentType === 'mixed') {
       if (farm.visitAmount && farm.visitAmount > 0) {
-        await paymentsRepo.create({
-          farmId,
-          amount: farm.visitAmount,
-          kind: 'visit',
-          status: 'pending',
+        const existing = await paymentsRepo.listByFarm(farmId);
+        const { start, end } = (await import('../lib/date')).weekBounds(ref);
+        const hasPendingThisWeek = existing.some((p) => {
+          if (p.kind !== 'visit') return false;
+          if (p.status !== 'pending' && p.status !== 'overdue') return false;
+          const created = new Date(p.createdAt ?? new Date().toISOString());
+          return created >= start && created <= end;
         });
+        if (!hasPendingThisWeek) {
+          await paymentsRepo.create({
+            farmId,
+            amount: farm.visitAmount,
+            kind: 'visit',
+            status: 'pending',
+          });
+        }
       }
     }
 

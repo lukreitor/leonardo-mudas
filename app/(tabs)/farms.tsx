@@ -9,6 +9,8 @@ import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { initialsOf } from '@/lib/initials';
 import { HomeFab } from '@/components/HomeFab';
+import { AmbientBg } from '@/components/AmbientBg';
+import { EmptyIllustration } from '@/components/EmptyIllustration';
 import type { Farm } from '@/db/schema';
 
 export default function FarmsScreen() {
@@ -25,7 +27,8 @@ export default function FarmsScreen() {
 
   return (
     <View style={styles.root}>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.papel }}>
+      <AmbientBg variant="soft" />
+      <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>Fazendas</Text>
@@ -45,7 +48,7 @@ export default function FarmsScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         {farms.length === 0 ? (
           <View style={styles.empty}>
-            <Ionicons name="leaf-outline" size={36} color={colors.broto} />
+            <EmptyIllustration size={120} />
             <Text style={styles.emptyTitle}>
               {showDeactivated ? 'Nenhuma fazenda desativada' : 'Nenhuma fazenda ativa'}
             </Text>
