@@ -1,35 +1,70 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/typography';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
+        tabBarActiveTintColor: colors.mata,
+        tabBarInactiveTintColor: colors.ink3,
+        tabBarLabelStyle: {
+          fontFamily: fonts.uiSemibold,
+          fontSize: 10,
+          letterSpacing: 0.2,
+          marginTop: -2,
+        },
+        tabBarStyle: {
+          position: 'absolute',
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: 'rgba(26,58,46,0.06)',
+          height: Platform.OS === 'ios' ? 88 : 70,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+          paddingTop: 10,
+          backgroundColor: Platform.OS === 'ios' ? 'transparent' : 'rgba(255,255,255,0.95)',
+          elevation: 0,
+        },
+        tabBarBackground: () =>
+          Platform.OS === 'ios' ? (
+            <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.95)' }]} />
+          ),
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Semana',
+          tabBarIcon: ({ color }) => <Ionicons name="home-outline" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="farms"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Fazendas',
+          tabBarIcon: ({ color }) => <Ionicons name="leaf-outline" size={22} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="financial"
+        options={{
+          title: 'Financeiro',
+          tabBarIcon: ({ color }) => <MaterialCommunityIcons name="currency-usd" size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Perfil',
+          tabBarIcon: ({ color }) => <Ionicons name="person-outline" size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen name="explore" options={{ href: null }} />
     </Tabs>
   );
 }

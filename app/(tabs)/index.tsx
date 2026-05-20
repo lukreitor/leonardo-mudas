@@ -1,98 +1,244 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useCallback, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { WeekProgressCard } from '@/components/WeekProgressCard';
+import { WeekNav } from '@/components/WeekNav';
+import { FarmCard } from '@/components/FarmCard';
+
+import { visitsService, type FarmWithStatus } from '@/services/visits';
+import { currentWeek, formatDayLong } from '@/lib/date';
+import { initialsOf } from '@/lib/initials';
+import { colors, farmColors } from '@/theme/colors';
+import { fonts } from '@/theme/typography';
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const router = useRouter();
+  const [data, setData] = useState<{
+    farms: FarmWithStatus[];
+    counts: { visited: number; skipped: number; pending: number; total: number };
+  } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const week = currentWeek();
+  const todayIdx = (new Date().getDay() + 6) % 7;
+
+  const load = useCallback(async () => {
+    const result = await visitsService.getFarmsForWeek(week);
+    setData({ farms: result.farms, counts: result.counts });
+  }, [week]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  const onTap = useCallback(
+    async (farm: FarmWithStatus) => {
+      const next = await visitsService.cycleStatus(farm.id, farm.status, 'tap', week);
+      setData((prev) => {
+        if (!prev) return prev;
+        const farms = prev.farms.map((f) => (f.id === farm.id ? { ...f, status: next } : f));
+        return { farms, counts: recalcCounts(farms) };
+      });
+    },
+    [week]
+  );
+
+  const onLongPress = useCallback(
+    async (farm: FarmWithStatus) => {
+      const next = await visitsService.cycleStatus(farm.id, farm.status, 'longpress', week);
+      setData((prev) => {
+        if (!prev) return prev;
+        const farms = prev.farms.map((f) => (f.id === farm.id ? { ...f, status: next } : f));
+        return { farms, counts: recalcCounts(farms) };
+      });
+    },
+    [week]
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
+  if (!data) {
+    return <View style={{ flex: 1, backgroundColor: colors.papel }} />;
+  }
+
+  const today = new Date();
+  const dateLabel = formatDayLong(today);
+
+  return (
+    <View style={styles.root}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.papel }}>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>Bom dia,</Text>
+            <Text style={styles.date}>{dateLabel}</Text>
+          </View>
+          <View style={styles.userAvatar}>
+            <Text style={styles.userAvatarText}>L</Text>
+          </View>
+        </View>
+      </SafeAreaView>
+
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.broto} />
+        }>
+        <View style={styles.cardWrap}>
+          <WeekProgressCard
+            visited={data.counts.visited}
+            total={data.counts.total}
+            weekNumber={week.week}
+            pendingCount={data.counts.pending}
+          />
+        </View>
+
+        <WeekNav today={todayIdx} visitedDays={[todayIdx]} />
+
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>Suas fazendas</Text>
+          {data.counts.skipped > 0 ? (
+            <View style={styles.skipBadge}>
+              <Text style={styles.skipBadgeText}>{data.counts.skipped} puladas</Text>
+            </View>
+          ) : data.counts.pending > 0 ? (
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>{data.counts.pending} pendentes</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.list}>
+          {data.farms.map((farm, i) => (
+            <FarmCard
+              key={farm.id}
+              farmId={farm.id}
+              name={farm.name}
+              avatarColor={farm.colorToken ?? farmColors[i % farmColors.length]}
+              initials={initialsOf(farm.name)}
+              status={farm.status}
+              meta={metaFor(farm)}
+              onTap={() => onTap(farm)}
+              onLongPress={() => onLongPress(farm)}
+              onOpen={() => router.push(`/farm/${farm.id}` as any)}
+            />
+          ))}
+        </View>
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
+    </View>
   );
 }
 
+function metaFor(farm: FarmWithStatus): string | undefined {
+  if (farm.status === 'visited') return 'Visitada esta semana';
+  if (farm.status === 'skipped') return undefined;
+  return farm.ownerName ?? undefined;
+}
+
+function recalcCounts(farms: FarmWithStatus[]): {
+  visited: number;
+  skipped: number;
+  pending: number;
+  total: number;
+} {
+  const visited = farms.filter((f) => f.status === 'visited').length;
+  const skipped = farms.filter((f) => f.status === 'skipped').length;
+  const pending = farms.filter((f) => f.status === 'pending').length;
+  return { visited, skipped, pending, total: farms.length - skipped };
+}
+
 const styles = StyleSheet.create({
-  titleContainer: {
+  root: { flex: 1, backgroundColor: colors.papel },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  greeting: {
+    fontFamily: fonts.uiMedium,
+    fontSize: 13,
+    color: colors.ink3,
+    letterSpacing: 0.2,
+  },
+  date: {
+    fontFamily: fonts.display,
+    fontSize: 22,
+    color: colors.mata,
+    letterSpacing: -0.4,
+    marginTop: 2,
+    textTransform: 'capitalize',
+  },
+  userAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.mata,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.mata,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  userAvatarText: {
+    color: 'white',
+    fontFamily: fonts.displayBold,
+    fontSize: 18,
+  },
+  scroll: { paddingBottom: 32 },
+  cardWrap: { paddingHorizontal: 20, paddingTop: 8 },
+  sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 14,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  sectionTitle: {
+    fontFamily: fonts.display,
+    fontSize: 20,
+    color: colors.mata,
+    letterSpacing: -0.3,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  countBadge: {
+    backgroundColor: 'rgba(232,160,76,0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  countBadgeText: {
+    fontFamily: fonts.uiSemibold,
+    fontSize: 12,
+    color: colors.mangaDeep,
+  },
+  skipBadge: {
+    backgroundColor: 'rgba(26,58,46,0.06)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  skipBadgeText: {
+    fontFamily: fonts.uiSemibold,
+    fontSize: 12,
+    color: colors.ink3,
+  },
+  list: {
+    paddingHorizontal: 16,
+    gap: 8,
   },
 });
