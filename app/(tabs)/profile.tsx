@@ -3,6 +3,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
+import Constants from 'expo-constants';
 
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
@@ -11,6 +13,7 @@ import { useSettings } from '@/stores/settings';
 import { authService } from '@/services/auth';
 import { exportService } from '@/services/export';
 import { backupService } from '@/services/backup';
+import { pdfService } from '@/services/pdf';
 import { runDateTests } from '@/lib/date.test';
 import { AmbientBg } from '@/components/AmbientBg';
 
@@ -81,6 +84,47 @@ export default function ProfileScreen() {
     const next = darkMode === 'system' ? 'light' : darkMode === 'light' ? 'dark' : 'system';
     setDarkMode(next);
   }, [darkMode, setDarkMode]);
+
+  const handleRestore = useCallback(async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['application/x-sqlite3', 'application/octet-stream', '*/*'],
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const uri = result.assets[0].uri;
+
+    Alert.alert(
+      'Restaurar backup?',
+      'Isso vai substituir os dados atuais. Um backup de segurança será criado antes.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Restaurar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await backupService.restoreFromBackup(uri);
+              Alert.alert(
+                '✓ Restaurado',
+                'Backup importado com sucesso. Feche e reabra o app para ver os dados restaurados.'
+              );
+            } catch (err: any) {
+              Alert.alert('Erro', err?.message ?? 'Falha ao restaurar');
+            }
+          },
+        },
+      ]
+    );
+  }, []);
+
+  const handlePdf = useCallback(async () => {
+    try {
+      const now = new Date();
+      await pdfService.generateMonthlyReport(now.getFullYear(), now.getMonth() + 1);
+    } catch (err: any) {
+      Alert.alert('Erro', err?.message ?? 'Falha ao gerar PDF');
+    }
+  }, []);
 
   const handleSignOut = () => {
     Alert.alert('Sair', 'Tem certeza?', [
@@ -163,6 +207,28 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={18} color={colors.ink4} />
           </Pressable>
 
+          <Pressable style={styles.row} onPress={handleRestore}>
+            <View style={[styles.rowIcon, { backgroundColor: 'rgba(122,160,91,0.15)' }]}>
+              <Ionicons name="cloud-upload-outline" size={18} color={colors.casca} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>Restaurar de backup</Text>
+              <Text style={styles.rowSub}>Importar .sqlite previamente salvo</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.ink4} />
+          </Pressable>
+
+          <Pressable style={styles.row} onPress={handlePdf}>
+            <View style={[styles.rowIcon, { backgroundColor: 'rgba(232,160,76,0.15)' }]}>
+              <Ionicons name="document-text-outline" size={18} color={colors.mangaDeep} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>Relatório PDF mensal</Text>
+              <Text style={styles.rowSub}>Anotações + fotos + financeiro do mês</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.ink4} />
+          </Pressable>
+
           <Pressable style={styles.row} onPress={cycleDarkMode}>
             <View style={[styles.rowIcon, { backgroundColor: 'rgba(74,124,89,0.12)' }]}>
               <Ionicons name="moon-outline" size={18} color={colors.broto} />
@@ -215,6 +281,10 @@ export default function ProfileScreen() {
           <Ionicons name="log-out-outline" size={18} color={colors.danger} />
           <Text style={styles.logoutText}>Sair</Text>
         </Pressable>
+
+        <Text style={styles.version}>
+          Leonardo Mudas · v{Constants.expoConfig?.version ?? '1.0.0'}
+        </Text>
 
         <View style={{ height: 120 }} />
       </ScrollView>
@@ -291,4 +361,12 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   logoutText: { color: colors.danger, fontFamily: fonts.uiSemibold, fontSize: 14 },
+  version: {
+    textAlign: 'center',
+    marginTop: 20,
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 12,
+    color: colors.ink4,
+  },
 });

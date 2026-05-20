@@ -16,6 +16,8 @@ import { AmbientBg } from '@/components/AmbientBg';
 import { visitsService, type FarmWithStatus } from '@/services/visits';
 import { speakWeekSummary } from '@/lib/voice';
 import { paymentsService } from '@/services/payments';
+import { locationService } from '@/services/location';
+import type { Farm } from '@/db/schema';
 import { currentWeek, formatDayLong, shiftWeek, type WeekRef } from '@/lib/date';
 import { initialsOf } from '@/lib/initials';
 import { colors, farmColors } from '@/theme/colors';
@@ -40,6 +42,7 @@ export default function HomeScreen() {
   const [undo, setUndo] = useState<UndoState>({ visible: false, message: '', farmId: null, prevStatus: null });
   const [showConfetti, setShowConfetti] = useState(false);
   const [confettiShownForWeek, setConfettiShownForWeek] = useState<string | null>(null);
+  const [nearbyFarm, setNearbyFarm] = useState<{ farm: Farm; distanceM: number } | null>(null);
 
   const today = useMemo(() => currentWeek(), []);
   const [selectedWeek, setSelectedWeek] = useState<WeekRef>(today);
@@ -55,6 +58,21 @@ export default function HomeScreen() {
   }, [selectedWeek]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  useEffect(() => {
+    if (!isCurrent) {
+      setNearbyFarm(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const has = await locationService.hasPermission();
+      if (!has) return;
+      const suggestion = await locationService.suggestNearbyVisit();
+      if (!cancelled) setNearbyFarm(suggestion);
+    })();
+    return () => { cancelled = true; };
+  }, [isCurrent, data?.farms.length]);
 
   useEffect(() => {
     if (!data || !isCurrent) return;
@@ -207,6 +225,24 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
+        {nearbyFarm && isCurrent ? (
+          <Pressable
+            style={styles.nearbyChip}
+            onPress={async () => {
+              const farm = data.farms.find((f) => f.id === nearbyFarm.farm.id);
+              if (farm && farm.status !== 'visited') {
+                await onTap(farm);
+              }
+              setNearbyFarm(null);
+            }}>
+            <Ionicons name="location" size={14} color={colors.broto} />
+            <Text style={styles.nearbyText}>
+              Você está a {Math.round(nearbyFarm.distanceM)}m de {nearbyFarm.farm.name}. Marcar visita?
+            </Text>
+            <Ionicons name="checkmark-circle" size={18} color={colors.broto} />
+          </Pressable>
+        ) : null}
+
         <View style={styles.list}>
           {data.farms.map((farm, i) => (
             <FarmCard
@@ -307,5 +343,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   futureHintText: { fontFamily: fonts.uiMedium, fontSize: 12, color: colors.mangaDeep },
+  nearbyChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 20, marginBottom: 12,
+    paddingHorizontal: 14, paddingVertical: 12,
+    backgroundColor: 'rgba(74,124,89,0.1)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(74,124,89,0.25)',
+  },
+  nearbyText: { flex: 1, fontFamily: fonts.uiSemibold, fontSize: 12, color: colors.mata },
   list: { paddingHorizontal: 16, gap: 8 },
 });

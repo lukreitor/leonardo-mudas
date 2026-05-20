@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "leonardo-mudas",
+    "name": "Leonardo Mudas",
     "slug": "leonardo-mudas",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,17 +9,37 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "br.lukreitor.leonardomudas",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Tirar fotos e gravar vídeos das visitas às fazendas.",
+        "NSMicrophoneUsageDescription": "Gravar áudios das observações de visita.",
+        "NSPhotoLibraryUsageDescription": "Salvar fotos da galeria como anotação.",
+        "NSLocationWhenInUseUsageDescription": "Sugerir fazenda próxima quando você chegar."
+      }
     },
     "android": {
+      "package": "br.lukreitor.leonardomudas",
+      "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#1A3A2E",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "RECORD_AUDIO",
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "output": "static",
@@ -33,19 +53,57 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#F5F0E6",
           "dark": {
-            "backgroundColor": "#000000"
+            "image": "./assets/images/splash-icon.png",
+            "backgroundColor": "#0E1B14"
           }
         }
       ],
       "expo-secure-store",
       "expo-sqlite",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permita a câmera para capturar fotos e vídeos das visitas."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permita o acesso à galeria para anexar fotos."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Permita Face ID para login rápido."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permita localização para sugerir fazendas próximas.",
+          "locationWhenInUsePermission": "Permita localização para sugerir fazendas próximas."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#4A7C59"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": ""
+      }
     }
   }
 }
