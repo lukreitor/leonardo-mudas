@@ -37,6 +37,25 @@ export const locationService = {
     }
   },
 
+  async reverseGeocode(lat: number, lng: number): Promise<string | null> {
+    try {
+      const results = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+      if (results.length === 0) return null;
+      const r = results[0];
+      const parts: string[] = [];
+      if (r.street) {
+        parts.push(r.streetNumber ? `${r.street}, ${r.streetNumber}` : r.street);
+      }
+      if (r.district) parts.push(r.district);
+      if (r.city || r.subregion) parts.push(r.city ?? r.subregion ?? '');
+      if (r.region) parts.push(r.region);
+      const formatted = parts.filter(Boolean).join(' · ');
+      return formatted || null;
+    } catch {
+      return null;
+    }
+  },
+
   async findNearestFarm(lat: number, lng: number): Promise<{ farm: Farm; distanceM: number } | null> {
     const farms = await farmsRepo.listActive();
     let nearest: { farm: Farm; distanceM: number } | null = null;

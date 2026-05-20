@@ -142,13 +142,18 @@ export default function FarmEditScreen() {
       if (pos) {
         setLat(pos.lat.toFixed(6));
         setLng(pos.lng.toFixed(6));
+        // Reverse geocode pra preencher endereço se vazio
+        if (!address.trim()) {
+          const formatted = await locationService.reverseGeocode(pos.lat, pos.lng);
+          if (formatted) setAddress(formatted);
+        }
       } else {
         Alert.alert('Sem sinal', 'Não foi possível pegar localização. Tente em área aberta.');
       }
     } finally {
       setFetchingGps(false);
     }
-  }, []);
+  }, [address]);
 
   return (
     <View style={styles.root}>
@@ -198,9 +203,12 @@ export default function FarmEditScreen() {
               style={[styles.gpsBtn, fetchingGps && { opacity: 0.6 }]}>
               <Ionicons name="location-outline" size={16} color={colors.broto} />
               <Text style={styles.gpsBtnText}>
-                {fetchingGps ? 'Pegando posição...' : 'Usar minha posição atual'}
+                {fetchingGps ? 'Pegando posição e endereço...' : 'Usar minha posição atual'}
               </Text>
             </Pressable>
+            <Text style={styles.gpsSubtle}>
+              Preenche latitude, longitude{!address.trim() ? ' e endereço' : ''} automaticamente
+            </Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <View style={{ flex: 1 }}>
                 <Field label="Latitude" value={lat} onChangeText={setLat} placeholder="-9.3856" keyboardType="numbers-and-punctuation" />
@@ -428,5 +436,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.broto,
     marginTop: 4,
+  },
+  gpsSubtle: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 11,
+    color: colors.ink3,
+    marginTop: -6,
+    marginBottom: 8,
+    textAlign: 'center',
   },
 });
