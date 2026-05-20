@@ -23,6 +23,7 @@ import { useDbMigrations } from '@/db/migrate';
 import { runSeedIfNeeded } from '@/services/seed';
 import { maintenanceService } from '@/services/maintenance';
 import { useAuthStore } from '@/stores/auth';
+import { useSettings } from '@/stores/settings';
 import { colors } from '@/theme/colors';
 
 export const unstable_settings = {
@@ -62,6 +63,10 @@ export default function RootLayout() {
   useEffect(() => {
     if (!hydrated) hydrate();
   }, [hydrated, hydrate]);
+
+  useEffect(() => {
+    useSettings.getState().hydrate();
+  }, []);
 
   useEffect(() => {
     if (!hydrated || !seeded || !fontsLoaded || !migrationsReady) return;

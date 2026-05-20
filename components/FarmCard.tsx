@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { playDropSound } from '@/lib/sound';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -58,8 +59,9 @@ export function FarmCard({ name, meta, avatarColor, initials, status, onTap, onL
 
   const handleTap = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (status !== 'visited') playDropSound();
     onTap();
-  }, [onTap]);
+  }, [onTap, status]);
 
   const handleLongPress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);

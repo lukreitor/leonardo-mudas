@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Animated, { useSharedValue, useAnimatedProps, withTiming, Easing } from 'react-native-reanimated';
-import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop, Path } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, RadialGradient, Stop, Path } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '@/theme/colors';
@@ -20,9 +20,12 @@ type Props = {
   total: number;
   weekNumber: number;
   pendingCount: number;
+  weekLabel?: string;
+  onPrev?: () => void;
+  onNext?: () => void;
 };
 
-export function WeekProgressCard({ visited, total, weekNumber, pendingCount }: Props) {
+export function WeekProgressCard({ visited, total, weekNumber, pendingCount, weekLabel, onPrev, onNext }: Props) {
   const progress = total === 0 ? 0 : visited / total;
   const pct = Math.round(progress * 100);
 
@@ -43,6 +46,30 @@ export function WeekProgressCard({ visited, total, weekNumber, pendingCount }: P
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.card}>
+
+      {/* Radial orange glow circle — bottom right (mockup ::before) */}
+      <Svg pointerEvents="none" style={[StyleSheet.absoluteFill]}>
+        <Defs>
+          <RadialGradient id="orangeGlow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+            <Stop offset="0" stopColor="#E8A04C" stopOpacity="0.25" />
+            <Stop offset="0.7" stopColor="#E8A04C" stopOpacity="0" />
+            <Stop offset="1" stopColor="#E8A04C" stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+      </Svg>
+      <View pointerEvents="none" style={styles.orangeGlowWrap}>
+        <Svg width={280} height={280}>
+          <Defs>
+            <RadialGradient id="og2" cx="50%" cy="50%" r="50%">
+              <Stop offset="0" stopColor="#E8A04C" stopOpacity="0.25" />
+              <Stop offset="0.7" stopColor="#E8A04C" stopOpacity="0" />
+            </RadialGradient>
+          </Defs>
+          <Circle cx={140} cy={140} r={140} fill="url(#og2)" />
+        </Svg>
+      </View>
+
+      {/* Leaf decorative bottom-right */}
       <View pointerEvents="none" style={styles.leafBg}>
         <Svg viewBox="0 0 200 200" width={180} height={180}>
           <Path
@@ -59,11 +86,21 @@ export function WeekProgressCard({ visited, total, weekNumber, pendingCount }: P
         </Svg>
       </View>
 
-      <View pointerEvents="none" style={styles.orangeGlow} />
-
       <View style={styles.topRow}>
         <Text style={styles.label}>Esta semana</Text>
-        <Text style={styles.weekBadge}>Semana {weekNumber}</Text>
+        <View style={styles.weekNav}>
+          {onPrev ? (
+            <Pressable onPress={onPrev} style={styles.weekArrow} hitSlop={8}>
+              <Ionicons name="chevron-back" size={12} color={colors.mangaSoft} />
+            </Pressable>
+          ) : null}
+          <Text style={styles.weekBadge}>{weekLabel ?? `Semana ${weekNumber}`}</Text>
+          {onNext ? (
+            <Pressable onPress={onNext} style={styles.weekArrow} hitSlop={8}>
+              <Ionicons name="chevron-forward" size={12} color={colors.mangaSoft} />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       <View style={styles.body}>
@@ -131,20 +168,18 @@ const styles = StyleSheet.create({
     shadowRadius: 48,
     elevation: 12,
   },
-  leafBg: {
-    position: 'absolute',
-    right: -10,
-    bottom: -20,
-    opacity: 0.18,
-  },
-  orangeGlow: {
+  orangeGlowWrap: {
     position: 'absolute',
     width: 280,
     height: 280,
     right: -80,
     bottom: -100,
-    borderRadius: 140,
-    backgroundColor: 'rgba(232,160,76,0.25)',
+  },
+  leafBg: {
+    position: 'absolute',
+    right: -10,
+    bottom: -20,
+    opacity: 0.18,
   },
   topRow: {
     flexDirection: 'row',
@@ -161,10 +196,18 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
     textTransform: 'uppercase',
   },
+  weekNav: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  weekArrow: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center', justifyContent: 'center',
+  },
   weekBadge: {
     color: colors.mangaSoft,
     fontFamily: fonts.uiMedium,
     fontSize: 11,
+    minWidth: 80,
+    textAlign: 'center',
   },
   body: {
     flexDirection: 'row',

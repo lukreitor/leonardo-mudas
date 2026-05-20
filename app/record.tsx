@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { useAudioRecorder, RecordingPresets, AudioModule } from 'expo-audio';
@@ -15,6 +15,7 @@ import Animated, {
   withSequence,
   Easing,
 } from 'react-native-reanimated';
+import Svg, { Defs, RadialGradient, Stop, Rect, Ellipse } from 'react-native-svg';
 
 import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
@@ -60,14 +61,17 @@ export default function RecordScreen() {
   useEffect(() => {
     if (isRecording) {
       recPulse.value = withRepeat(
-        withTiming(1.12, { duration: 1000, easing: Easing.inOut(Easing.sin) }),
+        withSequence(
+          withTiming(1.12, { duration: 1000, easing: Easing.inOut(Easing.sin) }),
+          withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.sin) })
+        ),
         -1,
-        true
+        false
       );
       recDot.value = withRepeat(
-        withSequence(withTiming(1, { duration: 600 }), withTiming(0.25, { duration: 600 })),
+        withSequence(withTiming(1, { duration: 600 }), withTiming(0.3, { duration: 600 })),
         -1,
-        true
+        false
       );
     } else {
       recPulse.value = withTiming(1);
@@ -180,21 +184,36 @@ export default function RecordScreen() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient
-        colors={[colors.mata, colors.noite]}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-      />
-      <View pointerEvents="none" style={styles.ambientTop} />
-      <View pointerEvents="none" style={styles.ambientBottom} />
+      {/* Radial BG ellipse #1A3A2E at center -> #0E1B14 edges */}
+      <Svg pointerEvents="none" style={StyleSheet.absoluteFill} preserveAspectRatio="xMidYMid slice">
+        <Defs>
+          <RadialGradient id="bg" cx="50%" cy="50%" rx="65%" ry="65%">
+            <Stop offset="0" stopColor="#1A3A2E" stopOpacity="1" />
+            <Stop offset="1" stopColor="#0E1B14" stopOpacity="1" />
+          </RadialGradient>
+          <RadialGradient id="amber" cx="50%" cy="30%" rx="55%" ry="40%">
+            <Stop offset="0" stopColor="#E8A04C" stopOpacity="0.12" />
+            <Stop offset="0.6" stopColor="#E8A04C" stopOpacity="0" />
+          </RadialGradient>
+          <RadialGradient id="green" cx="50%" cy="70%" rx="40%" ry="40%">
+            <Stop offset="0" stopColor="#4A7C59" stopOpacity="0.18" />
+            <Stop offset="0.7" stopColor="#4A7C59" stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill="url(#bg)" />
+        <Rect width="100%" height="100%" fill="url(#amber)" />
+        <Rect width="100%" height="100%" fill="url(#green)" />
+      </Svg>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1 }}>
-          <View style={styles.topRow}>
-            <Pressable onPress={() => router.back()} style={styles.cancel}>
-              <Text style={styles.cancelText}>Cancelar</Text>
-            </Pressable>
+        {/* Top bar */}
+        <View style={styles.topRow}>
+          <Pressable onPress={() => router.back()} style={styles.cancelWrap}>
+            <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+            <Text style={styles.cancelText}>Cancelar</Text>
+          </Pressable>
+          <View style={styles.farmChipWrap}>
+            <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
             <View style={styles.farmChip}>
               <View style={[styles.farmAv, { backgroundColor: farmAvatarColor }]}>
                 <Text style={styles.farmAvText}>{farm ? initialsOf(farm.name) : '?'}</Text>
@@ -202,166 +221,200 @@ export default function RecordScreen() {
               <Text style={styles.farmChipText}>{farm?.name ?? 'Fazenda'}</Text>
             </View>
           </View>
+        </View>
 
-          <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-            <View style={styles.titleWrap}>
+        {/* Center: timer (audio mode) OR text editor OR camera hint */}
+        <View pointerEvents="box-none" style={styles.center}>
+          {mode === 'audio' ? (
+            <>
+              <View style={styles.timerRow}>
+                {isRecording ? (
+                  <Animated.View style={[styles.recDot, recDotStyle]} />
+                ) : null}
+                <Text style={styles.timer}>{formatTime(elapsed)}</Text>
+              </View>
+              <Text style={styles.label}>
+                {isRecording ? 'gravando áudio · solte para finalizar' : 'segure o botão para gravar áudio'}
+              </Text>
+            </>
+          ) : mode === 'text' ? (
+            <View style={styles.textWrap}>
               <TextInput
-                value={title}
-                onChangeText={setTitle}
-                placeholder="título opcional (ex: 'brotos do leste')"
-                placeholderTextColor="rgba(255,255,255,0.4)"
-                style={styles.titleInput}
+                value={textNote}
+                onChangeText={setTextNote}
+                multiline
+                placeholder="escreva sua observação..."
+                placeholderTextColor="rgba(255,255,255,0.35)"
+                style={styles.textArea}
               />
             </View>
-
-            <View style={styles.center}>
-              {mode === 'audio' ? (
-                <>
-                  <View style={styles.timerRow}>
-                    {isRecording ? (
-                      <Animated.View style={[styles.recDot, recDotStyle]} />
-                    ) : null}
-                    <Text style={styles.timer}>{formatTime(elapsed)}</Text>
-                  </View>
-                  <Text style={styles.hint}>
-                    {isRecording ? 'gravando áudio · solte para finalizar' : 'segure o botão para gravar'}
-                  </Text>
-                </>
-              ) : mode === 'text' ? (
-                <View style={styles.textWrap}>
-                  <TextInput
-                    value={textNote}
-                    onChangeText={setTextNote}
-                    multiline
-                    placeholder="escreva sua observação..."
-                    placeholderTextColor="rgba(255,255,255,0.35)"
-                    style={styles.textArea}
-                  />
-                </View>
-              ) : (
-                <View style={styles.captureHint}>
-                  <Ionicons
-                    name={mode === 'photo' ? 'camera-outline' : 'videocam-outline'}
-                    size={56}
-                    color={colors.mangaSoft}
-                  />
-                  <Text style={styles.hint}>
-                    {mode === 'photo' ? 'toque para tirar foto' : 'toque para gravar vídeo'}
-                  </Text>
-                </View>
-              )}
+          ) : (
+            <View style={styles.captureHint}>
+              <Ionicons
+                name={mode === 'photo' ? 'camera-outline' : 'videocam-outline'}
+                size={64}
+                color={colors.mangaSoft}
+              />
+              <Text style={styles.label}>
+                {mode === 'photo' ? 'toque para tirar foto' : 'toque para gravar vídeo'}
+              </Text>
             </View>
+          )}
+        </View>
 
+        {/* Optional title field (very subtle, between center and waveform) */}
+        <View style={styles.titleWrap}>
+          <TextInput
+            value={title}
+            onChangeText={setTitle}
+            placeholder="título opcional (ex: 'brotos do leste')"
+            placeholderTextColor="rgba(255,255,255,0.35)"
+            style={styles.titleInput}
+          />
+        </View>
+
+        {/* Waveform absolute bottom 220 */}
+        {mode === 'audio' ? (
+          <View pointerEvents="none" style={styles.wavefAbs}>
+            <RecordWaveform active={isRecording} />
+          </View>
+        ) : null}
+
+        {/* Record button wrap absolute bottom 80 */}
+        <View pointerEvents="box-none" style={styles.recordWrap}>
+          <Animated.View style={pulseStyle}>
             {mode === 'audio' ? (
-              <View style={styles.wavefWrap}>
-                <RecordWaveform active={isRecording} />
-              </View>
-            ) : null}
+              <Pressable
+                onPressIn={startRecording}
+                onPressOut={stopAndSave}
+                style={styles.recordBtnTouch}>
+                <View style={styles.ringOuter} />
+                <View style={styles.ringMid} />
+                <LinearGradient
+                  colors={[colors.manga, colors.mangaDeep]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.recordBtn}>
+                  <View style={isRecording ? styles.recordSquare : styles.recordInner} />
+                </LinearGradient>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={styles.recordBtnTouch}
+                onPress={mode === 'photo' ? takePhoto : mode === 'video' ? recordVideo : saveText}>
+                <View style={styles.ringOuter} />
+                <View style={styles.ringMid} />
+                <LinearGradient
+                  colors={[colors.manga, colors.mangaDeep]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.recordBtn}>
+                  {mode === 'text' ? (
+                    <Ionicons name="checkmark" size={36} color="white" />
+                  ) : (
+                    <Ionicons name={mode === 'photo' ? 'camera' : 'videocam'} size={32} color="white" />
+                  )}
+                </LinearGradient>
+              </Pressable>
+            )}
+          </Animated.View>
+          <Text style={styles.hint}>
+            {mode === 'audio' ? (isRecording ? 'solte para finalizar' : 'segurando para gravar') : ''}
+          </Text>
+        </View>
 
-            <View style={styles.bottom}>
-              <Animated.View style={pulseStyle}>
-                {mode === 'audio' ? (
-                  <Pressable
-                    onPressIn={startRecording}
-                    onPressOut={stopAndSave}
-                    style={styles.recordBtn}>
-                    <View style={styles.recordRingOuter} />
-                    <View style={styles.recordRingMid} />
-                    <View style={isRecording ? styles.recordSquare : styles.recordInner} />
-                  </Pressable>
-                ) : (
-                  <Pressable
-                    style={styles.recordBtn}
-                    onPress={
-                      mode === 'photo' ? takePhoto : mode === 'video' ? recordVideo : saveText
-                    }>
-                    {mode === 'text' ? (
-                      <Ionicons name="checkmark" size={36} color="white" />
-                    ) : (
-                      <Ionicons name={mode === 'photo' ? 'camera' : 'videocam'} size={32} color="white" />
-                    )}
-                  </Pressable>
-                )}
-              </Animated.View>
-
-              <View style={styles.modes}>
-                {(['audio', 'photo', 'video', 'text'] as Mode[]).map((m) => (
-                  <Pressable
-                    key={m}
-                    onPress={() => !isRecording && setMode(m)}
-                    style={[styles.mode, mode === m && styles.modeActive]}>
-                    <Text style={[styles.modeText, mode === m && styles.modeActiveText]}>
-                      {m === 'audio' ? 'Áudio' : m === 'photo' ? 'Foto' : m === 'video' ? 'Vídeo' : 'Nota'}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          </ScrollView>
-        </SafeAreaView>
+        {/* Mode pills absolute bottom 24 */}
+        <View style={styles.modesAbs}>
+          <BlurView intensity={20} tint="dark" style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />
+          <View style={styles.modes}>
+            {(['audio', 'photo', 'video', 'text'] as Mode[]).map((m) => (
+              <Pressable
+                key={m}
+                onPress={() => !isRecording && setMode(m)}
+                style={[styles.mode, mode === m && styles.modeActive]}>
+                <Text style={[styles.modeText, mode === m && styles.modeActiveText]}>
+                  {m === 'audio' ? 'Áudio' : m === 'photo' ? 'Foto' : m === 'video' ? 'Vídeo' : 'Nota'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
       </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.noite },
-  ambientTop: {
-    position: 'absolute',
-    top: -100,
-    left: -50,
-    width: 500,
-    height: 400,
-    borderRadius: 250,
-    backgroundColor: 'rgba(232,160,76,0.12)',
-  },
-  ambientBottom: {
-    position: 'absolute',
-    bottom: -100,
-    right: -50,
-    width: 400,
-    height: 400,
-    borderRadius: 200,
-    backgroundColor: 'rgba(74,124,89,0.18)',
-  },
+  root: { flex: 1, backgroundColor: '#0E1B14' },
+
   topRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 24, paddingTop: 12,
+    position: 'absolute',
+    top: 60,
+    left: 24,
+    right: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    zIndex: 10,
   },
-  cancel: { backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999 },
+  cancelWrap: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
   cancelText: { color: 'rgba(255,255,255,0.7)', fontFamily: fonts.uiMedium, fontSize: 14 },
+  farmChipWrap: {
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
   farmChip: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 999,
+    paddingLeft: 6, paddingRight: 14, paddingVertical: 6,
   },
   farmAv: {
     width: 28, height: 28, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',
   },
-  farmAvText: { color: 'white', fontFamily: fonts.displayBold, fontSize: 12 },
+  farmAvText: { color: 'white', fontFamily: fonts.displayBold, fontSize: 13 },
   farmChipText: { color: 'white', fontFamily: fonts.uiSemibold, fontSize: 13 },
-  titleWrap: { paddingHorizontal: 32, paddingTop: 24 },
-  titleInput: {
+
+  center: {
+    position: 'absolute',
+    top: '38%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    zIndex: 5,
+  },
+  timerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  recDot: {
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: '#EF4444',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  timer: {
     color: 'white',
+    fontFamily: fonts.display,
+    fontSize: 72,
+    letterSpacing: -2.6,
+  },
+  label: {
+    color: colors.mangaSoft,
     fontFamily: fonts.displayItalic,
     fontStyle: 'italic',
     fontSize: 16,
+    marginTop: 8,
     textAlign: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.12)',
   },
-  center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, marginTop: 32, minHeight: 200 },
-  timerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  recDot: {
-    width: 12, height: 12, borderRadius: 6,
-    backgroundColor: '#EF4444',
-    shadowColor: '#EF4444', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 8, elevation: 4,
-  },
-  timer: { color: 'white', fontFamily: fonts.display, fontSize: 72, letterSpacing: -2.6 },
-  hint: { color: colors.mangaSoft, fontFamily: fonts.displayItalic, fontStyle: 'italic', fontSize: 15, marginTop: 8, textAlign: 'center' },
+
   captureHint: { alignItems: 'center', gap: 12 },
   textWrap: { width: '100%' },
   textArea: {
@@ -372,37 +425,92 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 18,
     padding: 18,
-    minHeight: 180,
+    minHeight: 160,
     textAlignVertical: 'top',
   },
-  wavefWrap: { marginTop: 28 },
-  bottom: { alignItems: 'center', gap: 22, paddingBottom: 20, paddingTop: 24 },
-  recordBtn: {
-    width: 100, height: 100, borderRadius: 50,
-    backgroundColor: colors.manga,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: colors.mangaDeep, shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.4, shadowRadius: 48, elevation: 12,
-    position: 'relative',
-  },
-  recordRingOuter: {
+
+  titleWrap: {
     position: 'absolute',
-    top: -22, left: -22, right: -22, bottom: -22,
-    borderRadius: 72,
+    top: 130,
+    left: 36,
+    right: 36,
+    zIndex: 5,
+  },
+  titleInput: {
+    color: 'rgba(255,255,255,0.85)',
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+
+  wavefAbs: {
+    position: 'absolute',
+    bottom: 220,
+    left: 24,
+    right: 24,
+    height: 80,
+  },
+
+  recordWrap: {
+    position: 'absolute',
+    bottom: 80,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    gap: 14,
+    zIndex: 5,
+  },
+  recordBtnTouch: {
+    width: 100, height: 100, borderRadius: 50,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  ringOuter: {
+    position: 'absolute',
+    width: 128, height: 128, borderRadius: 64,
     backgroundColor: 'rgba(232,160,76,0.08)',
   },
-  recordRingMid: {
+  ringMid: {
     position: 'absolute',
-    top: -10, left: -10, right: -10, bottom: -10,
-    borderRadius: 60,
+    width: 112, height: 112, borderRadius: 56,
     backgroundColor: 'rgba(232,160,76,0.15)',
+  },
+  recordBtn: {
+    width: 100, height: 100, borderRadius: 50,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: colors.mangaDeep,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.4,
+    shadowRadius: 48,
+    elevation: 12,
   },
   recordInner: { width: 32, height: 32, backgroundColor: 'white', borderRadius: 16 },
   recordSquare: { width: 28, height: 28, backgroundColor: 'white', borderRadius: 4 },
+  hint: {
+    fontSize: 13,
+    fontFamily: fonts.uiMedium,
+    color: 'rgba(255,255,255,0.6)',
+    letterSpacing: 0.2,
+  },
+
+  modesAbs: {
+    position: 'absolute',
+    bottom: 24,
+    alignSelf: 'center',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 5,
+  },
   modes: {
-    flexDirection: 'row', gap: 4,
+    flexDirection: 'row',
+    gap: 4,
+    padding: 4,
+    borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.08)',
-    padding: 4, borderRadius: 999,
   },
   mode: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999 },
   modeActive: { backgroundColor: 'white' },

@@ -1,7 +1,8 @@
-import { useCallback, useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import { useCallback, useState, useEffect, useMemo } from 'react';
+import { View, Text, ScrollView, StyleSheet, RefreshControl, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { WeekProgressCard } from '@/components/WeekProgressCard';
@@ -10,9 +11,10 @@ import { FarmCard } from '@/components/FarmCard';
 import { UndoToast } from '@/components/UndoToast';
 import { HomeFab } from '@/components/HomeFab';
 import { Confetti } from '@/components/Confetti';
+import { AmbientBg } from '@/components/AmbientBg';
 
 import { visitsService, type FarmWithStatus } from '@/services/visits';
-import { currentWeek, formatDayLong } from '@/lib/date';
+import { currentWeek, formatDayLong, shiftWeek, type WeekRef } from '@/lib/date';
 import { initialsOf } from '@/lib/initials';
 import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
@@ -37,26 +39,30 @@ export default function HomeScreen() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [confettiShownForWeek, setConfettiShownForWeek] = useState<string | null>(null);
 
-  const week = currentWeek();
-  const weekKey = `${week.year}-W${week.week}`;
+  const today = useMemo(() => currentWeek(), []);
+  const [selectedWeek, setSelectedWeek] = useState<WeekRef>(today);
+  const isCurrent = selectedWeek.year === today.year && selectedWeek.week === today.week;
+  const isFuture = selectedWeek.year > today.year || (selectedWeek.year === today.year && selectedWeek.week > today.week);
+
+  const weekKey = `${selectedWeek.year}-W${selectedWeek.week}`;
   const todayIdx = (new Date().getDay() + 6) % 7;
 
   const load = useCallback(async () => {
-    const result = await visitsService.getFarmsForWeek(week);
+    const result = await visitsService.getFarmsForWeek(selectedWeek);
     setData({ farms: result.farms, counts: result.counts, visitedDays: result.visitedDays });
-  }, [week]);
+  }, [selectedWeek]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   useEffect(() => {
-    if (!data) return;
+    if (!data || !isCurrent) return;
     const { visited, total } = data.counts;
     if (total > 0 && visited === total && confettiShownForWeek !== weekKey) {
       setShowConfetti(true);
       setConfettiShownForWeek(weekKey);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
-  }, [data, weekKey, confettiShownForWeek]);
+  }, [data, weekKey, confettiShownForWeek, isCurrent]);
 
   const updateFarm = useCallback((farmId: number, nextStatus: FarmStatus) => {
     setData((prev) => {
@@ -68,16 +74,16 @@ export default function HomeScreen() {
 
   const onTap = useCallback(
     async (farm: FarmWithStatus) => {
-      const next = await visitsService.cycleStatus(farm.id, farm.status, 'tap', week);
+      const next = await visitsService.cycleStatus(farm.id, farm.status, 'tap', selectedWeek);
       updateFarm(farm.id, next);
     },
-    [week, updateFarm]
+    [selectedWeek, updateFarm]
   );
 
   const onLongPress = useCallback(
     async (farm: FarmWithStatus) => {
       const prevStatus = farm.status;
-      const next = await visitsService.cycleStatus(farm.id, farm.status, 'longpress', week);
+      const next = await visitsService.cycleStatus(farm.id, farm.status, 'longpress', selectedWeek);
       updateFarm(farm.id, next);
       if (next === 'skipped') {
         setUndo({
@@ -88,18 +94,18 @@ export default function HomeScreen() {
         });
       }
     },
-    [week, updateFarm]
+    [selectedWeek, updateFarm]
   );
 
   const handleUndo = useCallback(async () => {
     if (!undo.farmId) return;
-    await visitsService.unskipWeek(undo.farmId, week);
+    await visitsService.unskipWeek(undo.farmId, selectedWeek);
     if (undo.prevStatus === 'visited') {
-      await visitsService.markVisited(undo.farmId, week);
+      await visitsService.markVisited(undo.farmId, selectedWeek);
     }
     updateFarm(undo.farmId, undo.prevStatus ?? 'pending');
     setUndo({ visible: false, message: '', farmId: null, prevStatus: null });
-  }, [undo, week, updateFarm]);
+  }, [undo, selectedWeek, updateFarm]);
 
   const dismissUndo = useCallback(() => {
     setUndo((s) => ({ ...s, visible: false }));
@@ -111,16 +117,26 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [load]);
 
+  const goPrev = useCallback(() => {
+    Haptics.selectionAsync();
+    setSelectedWeek((w) => shiftWeek(w, -1));
+  }, []);
+
+  const goNext = useCallback(() => {
+    Haptics.selectionAsync();
+    setSelectedWeek((w) => shiftWeek(w, 1));
+  }, []);
+
   if (!data) {
     return <View style={{ flex: 1, backgroundColor: colors.papel }} />;
   }
 
-  const today = new Date();
-  const dateLabel = formatDayLong(today);
+  const dateLabel = formatDayLong(new Date());
 
   return (
     <View style={styles.root}>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.papel }}>
+      <AmbientBg variant="soft" />
+      <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Bom dia,</Text>
@@ -142,15 +158,27 @@ export default function HomeScreen() {
           <WeekProgressCard
             visited={data.counts.visited}
             total={data.counts.total}
-            weekNumber={week.week}
+            weekNumber={selectedWeek.week}
             pendingCount={data.counts.pending}
+            weekLabel={isCurrent ? `Semana ${selectedWeek.week}` : isFuture ? `Próx · Sem ${selectedWeek.week}` : `Sem ${selectedWeek.week}`}
+            onPrev={goPrev}
+            onNext={goNext}
           />
         </View>
 
-        <WeekNav today={todayIdx} visitedDays={data.visitedDays} />
+        {!isCurrent ? (
+          <Pressable style={styles.todayChip} onPress={() => setSelectedWeek(today)}>
+            <Ionicons name="arrow-back" size={11} color={colors.mangaDeep} />
+            <Text style={styles.todayChipText}>voltar à semana atual</Text>
+          </Pressable>
+        ) : null}
+
+        <WeekNav today={isCurrent ? todayIdx : -1} visitedDays={data.visitedDays} />
 
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>Suas fazendas</Text>
+          <Text style={styles.sectionTitle}>
+            {isFuture ? 'Próxima semana' : isCurrent ? 'Suas fazendas' : `Semana ${selectedWeek.week}`}
+          </Text>
           {data.counts.skipped > 0 ? (
             <View style={styles.skipBadge}>
               <Text style={styles.skipBadgeText}>{data.counts.skipped} puladas</Text>
@@ -162,6 +190,15 @@ export default function HomeScreen() {
           ) : null}
         </View>
 
+        {isFuture ? (
+          <View style={styles.futureHint}>
+            <Ionicons name="information-circle-outline" size={14} color={colors.mangaDeep} />
+            <Text style={styles.futureHintText}>
+              Você pode adiantar visitas dessa semana
+            </Text>
+          </View>
+        ) : null}
+
         <View style={styles.list}>
           {data.farms.map((farm, i) => (
             <FarmCard
@@ -171,7 +208,7 @@ export default function HomeScreen() {
               avatarColor={farm.colorToken ?? farmColors[i % farmColors.length]}
               initials={initialsOf(farm.name)}
               status={farm.status}
-              meta={metaFor(farm)}
+              meta={metaFor(farm, isFuture)}
               onTap={() => onTap(farm)}
               onLongPress={() => onLongPress(farm)}
               onOpen={() => router.push(`/farm/${farm.id}` as any)}
@@ -191,8 +228,8 @@ export default function HomeScreen() {
   );
 }
 
-function metaFor(farm: FarmWithStatus): string | undefined {
-  if (farm.status === 'visited') return 'Visitada esta semana';
+function metaFor(farm: FarmWithStatus, isFuture: boolean): string | undefined {
+  if (farm.status === 'visited') return isFuture ? 'Adiantada para esta semana' : 'Visitada esta semana';
   if (farm.status === 'skipped') return undefined;
   return farm.ownerName ?? undefined;
 }
@@ -230,6 +267,15 @@ const styles = StyleSheet.create({
   userAvatarText: { color: 'white', fontFamily: fonts.displayBold, fontSize: 18 },
   scroll: { paddingBottom: 32 },
   cardWrap: { paddingHorizontal: 20, paddingTop: 8 },
+  todayChip: {
+    alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 6,
+    backgroundColor: 'rgba(232,160,76,0.12)',
+    borderRadius: 999,
+    marginTop: 12,
+  },
+  todayChipText: { fontFamily: fonts.uiSemibold, fontSize: 11, color: colors.mangaDeep },
   sectionHead: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 24, paddingTop: 12, paddingBottom: 14,
@@ -245,5 +291,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
   },
   skipBadgeText: { fontFamily: fonts.uiSemibold, fontSize: 12, color: colors.ink3 },
+  futureHint: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 20, marginBottom: 12,
+    paddingHorizontal: 14, paddingVertical: 9,
+    backgroundColor: 'rgba(232,160,76,0.08)',
+    borderRadius: 12,
+  },
+  futureHintText: { fontFamily: fonts.uiMedium, fontSize: 12, color: colors.mangaDeep },
   list: { paddingHorizontal: 16, gap: 8 },
 });

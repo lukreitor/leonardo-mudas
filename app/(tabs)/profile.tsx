@@ -7,8 +7,11 @@ import { useRouter } from 'expo-router';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { useAuthStore } from '@/stores/auth';
+import { useSettings } from '@/stores/settings';
 import { authService } from '@/services/auth';
 import { exportService } from '@/services/export';
+import { backupService } from '@/services/backup';
+import { runDateTests } from '@/lib/date.test';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -18,6 +21,10 @@ export default function ProfileScreen() {
   const [bioAvailable, setBioAvailable] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [backupping, setBackupping] = useState(false);
+  const darkMode = useSettings((s) => s.darkMode);
+  const soundEnabled = useSettings((s) => s.soundEnabled);
+  const setDarkMode = useSettings((s) => s.setDarkMode);
+  const setSoundEnabled = useSettings((s) => s.setSoundEnabled);
 
   useEffect(() => {
     (async () => {
@@ -61,13 +68,18 @@ export default function ProfileScreen() {
   const handleBackup = useCallback(async () => {
     setBackupping(true);
     try {
-      await exportService.backupAll();
+      await backupService.exportFullBackup();
     } catch (err: any) {
       Alert.alert('Erro', err?.message ?? 'Não foi possível fazer backup');
     } finally {
       setBackupping(false);
     }
   }, []);
+
+  const cycleDarkMode = useCallback(() => {
+    const next = darkMode === 'system' ? 'light' : darkMode === 'light' ? 'dark' : 'system';
+    setDarkMode(next);
+  }, [darkMode, setDarkMode]);
 
   const handleSignOut = () => {
     Alert.alert('Sair', 'Tem certeza?', [
@@ -149,17 +161,53 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={18} color={colors.ink4} />
           </Pressable>
 
-          <Pressable style={styles.row}>
+          <Pressable style={styles.row} onPress={cycleDarkMode}>
             <View style={[styles.rowIcon, { backgroundColor: 'rgba(74,124,89,0.12)' }]}>
               <Ionicons name="moon-outline" size={18} color={colors.broto} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.rowLabel}>Modo escuro</Text>
-              <Text style={styles.rowSub}>Automático (sistema)</Text>
+              <Text style={styles.rowSub}>
+                {darkMode === 'system' ? 'Automático (sistema)' : darkMode === 'dark' ? 'Sempre escuro' : 'Sempre claro'}
+              </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.ink4} />
+            <View style={styles.darkPill}>
+              <Text style={styles.darkPillText}>{darkMode === 'system' ? 'auto' : darkMode === 'dark' ? 'on' : 'off'}</Text>
+            </View>
+          </Pressable>
+
+          <Pressable style={styles.row} onPress={() => setSoundEnabled(!soundEnabled)}>
+            <View style={[styles.rowIcon, { backgroundColor: 'rgba(232,160,76,0.15)' }]}>
+              <Ionicons name="water-outline" size={18} color={colors.mangaDeep} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>Som de confirmação</Text>
+              <Text style={styles.rowSub}>Gota d'água ao marcar visita</Text>
+            </View>
+            <View style={[styles.toggle, soundEnabled && styles.toggleOn]}>
+              <View style={[styles.toggleKnob, soundEnabled && styles.toggleKnobOn]} />
+            </View>
           </Pressable>
         </View>
+
+        <Pressable
+          style={[styles.row, { marginTop: 12 }]}
+          onPress={() => {
+            const r = runDateTests();
+            Alert.alert(
+              r.failed === 0 ? '✓ Tests passaram' : '✗ Falha em tests',
+              `${r.passed} OK · ${r.failed} falhou${r.errors.length > 0 ? '\n\n' + r.errors.join('\n') : ''}`
+            );
+          }}>
+          <View style={[styles.rowIcon, { backgroundColor: 'rgba(26,58,46,0.08)' }]}>
+            <Ionicons name="bug-outline" size={18} color={colors.mata} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowLabel}>Validar virada de ano</Text>
+            <Text style={styles.rowSub}>Testes ISO weeks 31/12 → 01/01</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.ink4} />
+        </Pressable>
 
         <Pressable style={styles.logout} onPress={handleSignOut}>
           <Ionicons name="log-out-outline" size={18} color={colors.danger} />
@@ -221,6 +269,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15, shadowRadius: 2,
   },
   toggleKnobOn: { transform: [{ translateX: 18 }] },
+  darkPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(26,58,46,0.08)',
+    borderRadius: 999,
+  },
+  darkPillText: {
+    fontFamily: fonts.uiBold,
+    fontSize: 10,
+    color: colors.ink2,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
   logout: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     marginTop: 20, padding: 14,

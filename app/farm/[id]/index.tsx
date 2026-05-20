@@ -17,6 +17,7 @@ import { NoteBlock } from '@/components/NoteBlock';
 import { YearHeatmap } from '@/components/YearHeatmap';
 import { PaymentCard } from '@/components/PaymentCard';
 import { RecentWeekCard } from '@/components/RecentWeekCard';
+import { EmptyIllustration } from '@/components/EmptyIllustration';
 import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { initialsOf } from '@/lib/initials';
@@ -172,7 +173,7 @@ export default function FarmDetailScreen() {
 
         {notes.length === 0 ? (
           <View style={styles.emptyNotes}>
-            <Ionicons name="leaf-outline" size={36} color={colors.broto} />
+            <EmptyIllustration size={96} />
             <Text style={styles.emptyTitle}>Nenhuma anotação ainda</Text>
             <Text style={styles.emptySub}>
               {isCurrentWeek
