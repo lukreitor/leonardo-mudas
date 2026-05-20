@@ -1,4 +1,4 @@
-import { eq, isNull, asc } from 'drizzle-orm';
+import { eq, isNull, isNotNull, asc } from 'drizzle-orm';
 import { db } from '../db/client';
 import { farms, type Farm, type NewFarm } from '../db/schema';
 
@@ -8,7 +8,7 @@ export const farmsRepo = {
   },
 
   async listDeactivated(): Promise<Farm[]> {
-    return db.select().from(farms).where(eq(farms.deletedAt, farms.deletedAt));
+    return db.select().from(farms).where(isNotNull(farms.deletedAt));
   },
 
   async getById(id: number): Promise<Farm | null> {
