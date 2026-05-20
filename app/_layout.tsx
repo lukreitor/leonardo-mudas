@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ActivityIndicator, Text, View } from 'react-native';
@@ -21,17 +21,21 @@ import {
 
 import { useDbMigrations } from '@/db/migrate';
 import { runSeedIfNeeded } from '@/services/seed';
+import { useAuthStore } from '@/stores/auth';
 import { colors } from '@/theme/colors';
-
-import '../global.css';
 
 export const unstable_settings = {
   anchor: '(tabs)',
 };
 
 export default function RootLayout() {
+  const router = useRouter();
+  const segments = useSegments();
   const { success: migrationsReady, error: migrationsError } = useDbMigrations();
   const [seeded, setSeeded] = useState(false);
+  const session = useAuthStore((s) => s.session);
+  const hydrated = useAuthStore((s) => s.hydrated);
+  const hydrate = useAuthStore((s) => s.hydrate);
 
   const [fontsLoaded] = useFraunces({
     Fraunces_400Regular,
@@ -50,6 +54,20 @@ export default function RootLayout() {
     }
   }, [migrationsReady, seeded]);
 
+  useEffect(() => {
+    if (!hydrated) hydrate();
+  }, [hydrated, hydrate]);
+
+  useEffect(() => {
+    if (!hydrated || !seeded || !fontsLoaded || !migrationsReady) return;
+    const inAuth = segments[0] === 'auth';
+    if (!session && !inAuth) {
+      router.replace('/auth/login' as any);
+    } else if (session && inAuth) {
+      router.replace('/(tabs)' as any);
+    }
+  }, [session, hydrated, seeded, fontsLoaded, migrationsReady, segments, router]);
+
   if (migrationsError) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.papel, padding: 24 }}>
@@ -61,7 +79,7 @@ export default function RootLayout() {
     );
   }
 
-  if (!migrationsReady || !fontsLoaded || !seeded) {
+  if (!migrationsReady || !fontsLoaded || !seeded || !hydrated) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.papel }}>
         <ActivityIndicator color={colors.broto} size="large" />
@@ -72,6 +90,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.papel } }}>
+        <Stack.Screen name="auth" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="farm/[id]" options={{ presentation: 'card' }} />
         <Stack.Screen name="record" options={{ presentation: 'fullScreenModal' }} />

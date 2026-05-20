@@ -1,19 +1,77 @@
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { useCallback, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from 'expo-router';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { colors } from '@/theme/colors';
+import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
+import { paymentsService, formatStructure, type MonthlySummary } from '@/services/payments';
+import { initialsOf } from '@/lib/initials';
+
+const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
 export default function FinancialScreen() {
+  const today = new Date();
+  const [month, setMonth] = useState(today.getMonth() + 1);
+  const [year, setYear] = useState(today.getFullYear());
+  const [summary, setSummary] = useState<MonthlySummary | null>(null);
+
+  const load = useCallback(async () => {
+    const s = await paymentsService.monthlySummary(year, month);
+    setSummary(s);
+  }, [year, month]);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const shiftMonth = (delta: number) => {
+    const next = new Date(year, month - 1 + delta, 1);
+    setMonth(next.getMonth() + 1);
+    setYear(next.getFullYear());
+  };
+
+  if (!summary) return <View style={{ flex: 1, backgroundColor: colors.papel }} />;
+
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={{ backgroundColor: colors.papel }}>
         <View style={styles.header}>
-          <Text style={styles.title}>Financeiro</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>Financeiro</Text>
+            <Pressable style={styles.searchBtn}>
+              <Ionicons name="search" size={16} color={colors.mata} />
+            </Pressable>
+          </View>
+          <View style={styles.monthPill}>
+            <Pressable style={styles.monthArrow} onPress={() => shiftMonth(-1)}>
+              <Ionicons name="chevron-back" size={14} color={colors.mata} />
+            </Pressable>
+            <Text style={styles.monthLabel}>
+              {MONTHS[month - 1]} · {year}
+            </Text>
+            <Pressable style={styles.monthArrow} onPress={() => shiftMonth(1)}>
+              <Ionicons name="chevron-forward" size={14} color={colors.mata} />
+            </Pressable>
+          </View>
         </View>
       </SafeAreaView>
+
       <ScrollView contentContainerStyle={styles.scroll}>
+        {summary.overdueTotal > 0 ? (
+          <View style={styles.overdueBanner}>
+            <Ionicons name="warning" size={18} color="#DC3545" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.overdueTitle}>
+                R$ {summary.overdueTotal.toFixed(0)} em atraso
+              </Text>
+              <Text style={styles.overdueSub}>
+                {summary.byFarm.filter((b) => b.status === 'overdue').length} fazendas pendentes
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         <LinearGradient
           colors={[colors.mata, '#234737', '#2D5A47']}
           start={{ x: 0, y: 0 }}
@@ -21,44 +79,231 @@ export default function FinancialScreen() {
           style={styles.hero}>
           <Text style={styles.heroLabel}>Recebido este mês</Text>
           <Text style={styles.heroAmount}>
-            <Text style={styles.currency}>R$ </Text>0
-            <Text style={styles.cents}>,00</Text>
+            <Text style={styles.currency}>R$ </Text>
+            {formatMoney(summary.receivedTotal).split(',')[0]}
+            <Text style={styles.cents}>,{formatMoney(summary.receivedTotal).split(',')[1] ?? '00'}</Text>
           </Text>
-          <Text style={styles.heroSub}>Em breve — Fase 3 do roadmap</Text>
+          <Text style={styles.heroSub}>
+            {summary.paidCount} pagamentos · {summary.commissionsCount} comissões
+          </Text>
         </LinearGradient>
 
-        <View style={styles.placeholderBox}>
-          <Text style={styles.placeholderText}>
-            Dashboard mensal completo + lista por fazenda + registro de pagamentos chegam na Fase 3.
-          </Text>
+        <View style={styles.grid}>
+          <View style={styles.metric}>
+            <View style={[styles.metricIcon, { backgroundColor: 'rgba(232,160,76,0.15)' }]}>
+              <Ionicons name="time-outline" size={14} color={colors.mangaDeep} />
+            </View>
+            <Text style={styles.metricLabel}>Pendente</Text>
+            <Text style={styles.metricValue}>
+              <Text style={styles.metricCurrency}>R$ </Text>
+              {summary.pendingTotal.toFixed(0)}
+            </Text>
+          </View>
+
+          <View style={styles.metric}>
+            <View style={[styles.metricIcon, { backgroundColor: 'rgba(122,160,91,0.15)' }]}>
+              <MaterialCommunityIcons name="percent" size={14} color={colors.casca} />
+            </View>
+            <Text style={styles.metricLabel}>Comissões</Text>
+            <Text style={styles.metricValue}>
+              <Text style={styles.metricCurrency}>R$ </Text>
+              {summary.commissionTotal.toFixed(0)}
+            </Text>
+          </View>
+
+          <View style={styles.metric}>
+            <View style={[styles.metricIcon, { backgroundColor: 'rgba(74,124,89,0.12)' }]}>
+              <Ionicons name="calendar-outline" size={14} color={colors.broto} />
+            </View>
+            <Text style={styles.metricLabel}>Próx. mensal</Text>
+            <Text style={styles.metricValue}>
+              <Text style={styles.metricCurrency}>R$ </Text>
+              {summary.upcomingMonthly.toFixed(0)}
+            </Text>
+          </View>
+
+          <View style={styles.metric}>
+            <View style={[styles.metricIcon, { backgroundColor: 'rgba(26,58,46,0.1)' }]}>
+              <Ionicons name="bar-chart-outline" size={14} color={colors.mata} />
+            </View>
+            <Text style={styles.metricLabel}>Atrasado</Text>
+            <Text style={styles.metricValue}>
+              <Text style={styles.metricCurrency}>R$ </Text>
+              {summary.overdueTotal.toFixed(0)}
+            </Text>
+          </View>
         </View>
+
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>Por fazenda</Text>
+          <Text style={styles.sectionCount}>{summary.byFarm.length}</Text>
+        </View>
+
+        <View style={styles.list}>
+          {summary.byFarm.map((row, i) => {
+            const isPending = row.status === 'pending';
+            const isOverdue = row.status === 'overdue';
+            const isPaid = row.status === 'paid';
+            return (
+              <View
+                key={row.farm.id}
+                style={[styles.row, (isPending || isOverdue) && styles.rowPending]}>
+                <View style={[styles.avatar, { backgroundColor: row.farm.colorToken ?? farmColors[i % farmColors.length] }]}>
+                  <Text style={styles.avatarText}>{initialsOf(row.farm.name)}</Text>
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.rowName}>{row.farm.name}</Text>
+                  <Text style={styles.rowStruct}>{formatStructure(row.farm)}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.rowValue}>
+                    <Text style={styles.rowCurrency}>R$ </Text>
+                    {row.receivedThisMonth.toFixed(0)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.rowStatus,
+                      isPaid && { color: colors.broto },
+                      isPending && { color: colors.mangaDeep },
+                      isOverdue && { color: colors.danger },
+                      row.status === 'none' && { color: colors.ink4 },
+                    ]}>
+                    {isPaid ? '● Pago' : isPending ? '● Pendente' : isOverdue ? '● Atrasado' : '— sem cobrança'}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        <View style={{ height: 140 }} />
       </ScrollView>
+
+      <Pressable style={styles.fab}>
+        <View style={styles.fabIcon}>
+          <Ionicons name="add" size={14} color="white" />
+        </View>
+        <Text style={styles.fabText}>Registrar</Text>
+      </Pressable>
     </View>
   );
 }
 
+function formatMoney(v: number): string {
+  return v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.papel },
-  header: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16 },
+  header: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 12 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   title: { fontFamily: fonts.display, fontSize: 28, color: colors.mata, letterSpacing: -0.6 },
-  scroll: { paddingHorizontal: 20, paddingBottom: 120 },
+  searchBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: colors.neblina,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(26,58,46,0.04)',
+  },
+  monthPill: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  monthArrow: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: colors.neblina,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(26,58,46,0.04)',
+  },
+  monthLabel: {
+    flex: 1, textAlign: 'center',
+    fontFamily: fonts.display, fontSize: 14, color: colors.mata,
+    letterSpacing: 0.1, textTransform: 'lowercase',
+  },
+  scroll: { paddingHorizontal: 20 },
+  overdueBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 14,
+    backgroundColor: 'rgba(220,53,69,0.08)',
+    borderRadius: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(220,53,69,0.15)',
+  },
+  overdueTitle: { fontFamily: fonts.uiSemibold, fontSize: 14, color: colors.danger },
+  overdueSub: { fontFamily: fonts.ui, fontSize: 12, color: colors.ink2, marginTop: 2 },
   hero: {
-    borderRadius: 28,
-    padding: 24,
-    overflow: 'hidden',
+    borderRadius: 28, padding: 24, overflow: 'hidden',
+    shadowColor: colors.mata,
+    shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.18, shadowRadius: 48, elevation: 12,
   },
   heroLabel: {
     color: 'rgba(255,255,255,0.7)',
-    fontFamily: fonts.uiSemibold,
-    fontSize: 12,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
+    fontFamily: fonts.uiSemibold, fontSize: 12,
+    letterSpacing: 1.2, textTransform: 'uppercase',
     marginBottom: 8,
   },
   heroAmount: { color: 'white', fontFamily: fonts.display, fontSize: 52, letterSpacing: -1.6 },
   currency: { fontSize: 22, opacity: 0.7 },
   cents: { fontSize: 24, opacity: 0.5 },
   heroSub: { color: 'rgba(255,255,255,0.78)', fontSize: 13, marginTop: 8 },
-  placeholderBox: { marginTop: 20, padding: 20, backgroundColor: colors.neblina, borderRadius: 18 },
-  placeholderText: { fontFamily: fonts.displayItalic, fontStyle: 'italic', color: colors.ink2, fontSize: 14, lineHeight: 22 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  metric: {
+    flexBasis: '48%',
+    backgroundColor: colors.neblina,
+    borderRadius: 18, padding: 14,
+    borderWidth: 1, borderColor: 'rgba(26,58,46,0.04)',
+  },
+  metricIcon: {
+    width: 28, height: 28, borderRadius: 8,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 10,
+  },
+  metricLabel: {
+    fontFamily: fonts.uiSemibold, fontSize: 10,
+    color: colors.ink3,
+    letterSpacing: 0.5, textTransform: 'uppercase',
+  },
+  metricValue: { fontFamily: fonts.display, fontSize: 22, color: colors.ink1, marginTop: 4, letterSpacing: -0.6 },
+  metricCurrency: { fontSize: 11, opacity: 0.55 },
+  sectionHead: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline',
+    paddingTop: 22, paddingBottom: 12,
+  },
+  sectionTitle: { fontFamily: fonts.display, fontSize: 19, color: colors.mata, letterSpacing: -0.3 },
+  sectionCount: { fontFamily: fonts.uiSemibold, fontSize: 12, color: colors.ink3 },
+  list: { gap: 8 },
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    padding: 14, borderRadius: 18,
+    backgroundColor: colors.neblina,
+    borderWidth: 1, borderColor: 'rgba(26,58,46,0.04)',
+  },
+  rowPending: {
+    backgroundColor: 'rgba(232,160,76,0.04)',
+    borderColor: 'rgba(232,160,76,0.2)',
+  },
+  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: 'white', fontFamily: fonts.displayBold, fontSize: 16, letterSpacing: -0.3 },
+  rowName: { fontFamily: fonts.uiSemibold, fontSize: 15, color: colors.ink1, letterSpacing: -0.2 },
+  rowStruct: { fontFamily: fonts.ui, fontSize: 11, color: colors.ink3, marginTop: 3 },
+  rowValue: { fontFamily: fonts.displayBold, fontSize: 16, color: colors.mata, letterSpacing: -0.3 },
+  rowCurrency: { fontSize: 10, opacity: 0.55 },
+  rowStatus: {
+    fontFamily: fonts.uiSemibold, fontSize: 10,
+    letterSpacing: 0.5, textTransform: 'uppercase',
+    marginTop: 3,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 100, right: 22,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 18, paddingVertical: 14,
+    borderRadius: 999,
+    backgroundColor: colors.mata,
+    shadowColor: colors.mata, shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.3, shadowRadius: 32, elevation: 12,
+  },
+  fabIcon: {
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: colors.manga,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  fabText: { color: 'white', fontFamily: fonts.uiSemibold, fontSize: 13 },
 });

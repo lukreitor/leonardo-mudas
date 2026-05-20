@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,12 +6,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { WeekProgressCard } from '@/components/WeekProgressCard';
 import { WeekNav } from '@/components/WeekNav';
 import { FarmCard } from '@/components/FarmCard';
+import { UndoToast } from '@/components/UndoToast';
 
 import { visitsService, type FarmWithStatus } from '@/services/visits';
 import { currentWeek, formatDayLong } from '@/lib/date';
 import { initialsOf } from '@/lib/initials';
 import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
+import type { FarmStatus } from '@/lib/contracts';
+
+type UndoState = {
+  visible: boolean;
+  message: string;
+  farmId: number | null;
+  prevStatus: FarmStatus | null;
+};
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -20,6 +29,7 @@ export default function HomeScreen() {
     counts: { visited: number; skipped: number; pending: number; total: number };
   } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [undo, setUndo] = useState<UndoState>({ visible: false, message: '', farmId: null, prevStatus: null });
 
   const week = currentWeek();
   const todayIdx = (new Date().getDay() + 6) % 7;
@@ -29,35 +39,54 @@ export default function HomeScreen() {
     setData({ farms: result.farms, counts: result.counts });
   }, [week]);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load])
-  );
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const updateFarm = useCallback((farmId: number, nextStatus: FarmStatus) => {
+    setData((prev) => {
+      if (!prev) return prev;
+      const farms = prev.farms.map((f) => (f.id === farmId ? { ...f, status: nextStatus } : f));
+      return { farms, counts: recalcCounts(farms) };
+    });
+  }, []);
 
   const onTap = useCallback(
     async (farm: FarmWithStatus) => {
       const next = await visitsService.cycleStatus(farm.id, farm.status, 'tap', week);
-      setData((prev) => {
-        if (!prev) return prev;
-        const farms = prev.farms.map((f) => (f.id === farm.id ? { ...f, status: next } : f));
-        return { farms, counts: recalcCounts(farms) };
-      });
+      updateFarm(farm.id, next);
     },
-    [week]
+    [week, updateFarm]
   );
 
   const onLongPress = useCallback(
     async (farm: FarmWithStatus) => {
+      const prevStatus = farm.status;
       const next = await visitsService.cycleStatus(farm.id, farm.status, 'longpress', week);
-      setData((prev) => {
-        if (!prev) return prev;
-        const farms = prev.farms.map((f) => (f.id === farm.id ? { ...f, status: next } : f));
-        return { farms, counts: recalcCounts(farms) };
-      });
+      updateFarm(farm.id, next);
+      if (next === 'skipped') {
+        setUndo({
+          visible: true,
+          message: `${farm.name} pulada essa semana`,
+          farmId: farm.id,
+          prevStatus,
+        });
+      }
     },
-    [week]
+    [week, updateFarm]
   );
+
+  const handleUndo = useCallback(async () => {
+    if (!undo.farmId) return;
+    await visitsService.unskipWeek(undo.farmId, week);
+    if (undo.prevStatus === 'visited') {
+      await visitsService.markVisited(undo.farmId, week);
+    }
+    updateFarm(undo.farmId, undo.prevStatus ?? 'pending');
+    setUndo({ visible: false, message: '', farmId: null, prevStatus: null });
+  }, [undo, week, updateFarm]);
+
+  const dismissUndo = useCallback(() => {
+    setUndo((s) => ({ ...s, visible: false }));
+  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -135,6 +164,8 @@ export default function HomeScreen() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      <UndoToast visible={undo.visible} message={undo.message} onUndo={handleUndo} onDismiss={dismissUndo} />
     </View>
   );
 }
@@ -167,78 +198,35 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  greeting: {
-    fontFamily: fonts.uiMedium,
-    fontSize: 13,
-    color: colors.ink3,
-    letterSpacing: 0.2,
-  },
+  greeting: { fontFamily: fonts.uiMedium, fontSize: 13, color: colors.ink3, letterSpacing: 0.2 },
   date: {
-    fontFamily: fonts.display,
-    fontSize: 22,
-    color: colors.mata,
-    letterSpacing: -0.4,
-    marginTop: 2,
-    textTransform: 'capitalize',
+    fontFamily: fonts.display, fontSize: 22, color: colors.mata,
+    letterSpacing: -0.4, marginTop: 2, textTransform: 'capitalize',
   },
   userAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: colors.mata,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.mata,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 3,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: colors.mata, shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12, shadowRadius: 6, elevation: 3,
   },
-  userAvatarText: {
-    color: 'white',
-    fontFamily: fonts.displayBold,
-    fontSize: 18,
-  },
+  userAvatarText: { color: 'white', fontFamily: fonts.displayBold, fontSize: 18 },
   scroll: { paddingBottom: 32 },
   cardWrap: { paddingHorizontal: 20, paddingTop: 8 },
   sectionHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 14,
   },
-  sectionTitle: {
-    fontFamily: fonts.display,
-    fontSize: 20,
-    color: colors.mata,
-    letterSpacing: -0.3,
-  },
+  sectionTitle: { fontFamily: fonts.display, fontSize: 20, color: colors.mata, letterSpacing: -0.3 },
   countBadge: {
     backgroundColor: 'rgba(232,160,76,0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
   },
-  countBadgeText: {
-    fontFamily: fonts.uiSemibold,
-    fontSize: 12,
-    color: colors.mangaDeep,
-  },
+  countBadgeText: { fontFamily: fonts.uiSemibold, fontSize: 12, color: colors.mangaDeep },
   skipBadge: {
     backgroundColor: 'rgba(26,58,46,0.06)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
   },
-  skipBadgeText: {
-    fontFamily: fonts.uiSemibold,
-    fontSize: 12,
-    color: colors.ink3,
-  },
-  list: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
+  skipBadgeText: { fontFamily: fonts.uiSemibold, fontSize: 12, color: colors.ink3 },
+  list: { paddingHorizontal: 16, gap: 8 },
 });

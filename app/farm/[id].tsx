@@ -6,6 +6,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { farmsRepo } from '@/repositories/farms';
+import { notesService, type NoteWithMedia } from '@/services/notes';
+import { NoteBlock } from '@/components/NoteBlock';
+import { YearHeatmap } from '@/components/YearHeatmap';
 import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { initialsOf } from '@/lib/initials';
@@ -16,17 +19,23 @@ export default function FarmDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [farm, setFarm] = useState<Farm | null>(null);
+  const [notes, setNotes] = useState<NoteWithMedia[]>([]);
+
+  const week = currentWeek();
 
   const load = useCallback(async () => {
     const f = await farmsRepo.getById(Number(id));
     setFarm(f);
-  }, [id]);
+    if (f) {
+      const ns = await notesService.listForFarmAndWeek(f.id, week);
+      setNotes(ns);
+    }
+  }, [id, week]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   if (!farm) return <View style={{ flex: 1, backgroundColor: colors.papel }} />;
 
-  const week = currentWeek();
   const avatarColor = farm.colorToken ?? farmColors[(farm.id - 1) % farmColors.length];
 
   return (
@@ -82,23 +91,40 @@ export default function FarmDetailScreen() {
 
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>Anotações da visita</Text>
-          <Pressable style={styles.addBtn}>
+          <Pressable
+            onPress={() => router.push(`/record?farmId=${farm.id}` as any)}
+            style={styles.addBtn}>
             <Ionicons name="add" size={14} color="white" />
           </Pressable>
         </View>
 
-        <View style={styles.emptyNotes}>
-          <Ionicons name="leaf-outline" size={36} color={colors.broto} />
-          <Text style={styles.emptyTitle}>Nenhuma anotação ainda</Text>
-          <Text style={styles.emptySub}>
-            Comece gravando um áudio, tirando uma foto ou escrevendo uma observação.
-          </Text>
-          <Pressable
-            onPress={() => router.push(`/record?farmId=${farm.id}` as any)}
-            style={styles.emptyCta}>
-            <Ionicons name="mic" size={16} color="white" />
-            <Text style={styles.emptyCtaText}>Gravar visita</Text>
-          </Pressable>
+        {notes.length === 0 ? (
+          <View style={styles.emptyNotes}>
+            <Ionicons name="leaf-outline" size={36} color={colors.broto} />
+            <Text style={styles.emptyTitle}>Nenhuma anotação ainda</Text>
+            <Text style={styles.emptySub}>
+              Comece gravando um áudio, tirando uma foto ou escrevendo uma observação.
+            </Text>
+            <Pressable
+              onPress={() => router.push(`/record?farmId=${farm.id}` as any)}
+              style={styles.emptyCta}>
+              <Ionicons name="mic" size={16} color="white" />
+              <Text style={styles.emptyCtaText}>Gravar visita</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.notesList}>
+            {notes.map((n) => (
+              <NoteBlock key={n.id} note={n} />
+            ))}
+          </View>
+        )}
+
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>Calendário</Text>
+        </View>
+        <View style={{ paddingHorizontal: 20 }}>
+          <YearHeatmap year={week.year} currentWeek={week.week} weekLevels={new Map()} />
         </View>
       </ScrollView>
     </View>
@@ -115,11 +141,7 @@ function mix(a: string, b: string, t: number): string {
 }
 function hexToRgb(hex: string) {
   const h = hex.replace('#', '');
-  return {
-    r: parseInt(h.slice(0, 2), 16),
-    g: parseInt(h.slice(2, 4), 16),
-    b: parseInt(h.slice(4, 6), 16),
-  };
+  return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) };
 }
 
 const styles = StyleSheet.create({
@@ -174,7 +196,7 @@ const styles = StyleSheet.create({
   },
   sectionHead: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 24, paddingTop: 18, paddingBottom: 14,
+    paddingHorizontal: 24, paddingTop: 22, paddingBottom: 14,
   },
   sectionTitle: { fontFamily: fonts.display, fontSize: 19, color: colors.mata, letterSpacing: -0.3 },
   addBtn: {
@@ -195,14 +217,9 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontFamily: fonts.display, fontSize: 17, color: colors.mata, marginTop: 14 },
   emptySub: {
-    fontFamily: fonts.displayItalic,
-    fontStyle: 'italic',
-    fontSize: 13,
-    color: colors.ink2,
-    textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 19,
-    maxWidth: 260,
+    fontFamily: fonts.displayItalic, fontStyle: 'italic',
+    fontSize: 13, color: colors.ink2,
+    textAlign: 'center', marginTop: 6, lineHeight: 19, maxWidth: 260,
   },
   emptyCta: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -212,4 +229,5 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   emptyCtaText: { color: 'white', fontFamily: fonts.uiSemibold, fontSize: 14 },
+  notesList: { paddingHorizontal: 20, gap: 10 },
 });
