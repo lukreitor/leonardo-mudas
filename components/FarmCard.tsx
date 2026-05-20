@@ -12,6 +12,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -80,11 +81,6 @@ export function FarmCard({ name, meta, avatarColor, initials, status, onTap, onL
     strokeDashoffset: TICK_PATH_LENGTH * (1 - tickProgress.value),
   }));
 
-  const cardBgStyle = useAnimatedStyle(() => {
-    const targetBg = status === 'visited' ? 'rgba(122,160,91,0.06)' : colors.neblina;
-    return { backgroundColor: targetBg };
-  });
-
   return (
     <Pressable
       onPress={handleTap}
@@ -93,7 +89,15 @@ export function FarmCard({ name, meta, avatarColor, initials, status, onTap, onL
       onPressOut={handlePressOut}
       delayLongPress={LONG_PRESS_MS}
       android_disableSound>
-      <Animated.View style={[styles.card, cardBgStyle, status === 'visited' && styles.cardVisited, containerStyle]}>
+      <Animated.View style={[styles.card, status === 'visited' && styles.cardVisited, containerStyle]}>
+        {status === 'visited' ? (
+          <LinearGradient
+            colors={['rgba(122,160,91,0.08)', 'rgba(74,124,89,0.04)']}
+            style={StyleSheet.absoluteFill}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+          />
+        ) : null}
         <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
           <Text style={styles.avatarText}>{initials}</Text>
         </View>
@@ -150,10 +154,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(26,58,46,0.05)',
     backgroundColor: colors.neblina,
     gap: 14,
+    overflow: 'hidden',
     ...shadows.sm,
   },
   cardVisited: {
-    borderColor: 'rgba(122,160,91,0.18)',
+    borderColor: 'rgba(122,160,91,0.22)',
+    borderWidth: 1,
   },
   avatar: {
     width: 48,
@@ -196,6 +202,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.broto,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: colors.broto,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 3,
   },
   pendingDot: {
     width: 32,

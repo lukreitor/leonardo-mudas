@@ -23,6 +23,18 @@ function monthBounds(year: number, month: number) {
 }
 
 export const paymentsService = {
+  async lastSixMonths(year: number, month: number): Promise<{ year: number; month: number; total: number }[]> {
+    const results: { year: number; month: number; total: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(year, month - 1 - i, 1);
+      const y = d.getFullYear();
+      const m = d.getMonth() + 1;
+      const paid = await paymentsRepo.listPaidInMonth(y, m);
+      results.push({ year: y, month: m, total: paid.reduce((s, p) => s + p.amount, 0) });
+    }
+    return results;
+  },
+
   async monthlySummary(year: number, month: number): Promise<MonthlySummary> {
     const farms = await farmsRepo.listActive();
     const paidThisMonth = await paymentsRepo.listPaidInMonth(year, month);

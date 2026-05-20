@@ -9,6 +9,7 @@ import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { paymentsService, formatStructure, type MonthlySummary } from '@/services/payments';
 import { initialsOf } from '@/lib/initials';
+import { Sparkline } from '@/components/Sparkline';
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
@@ -18,10 +19,15 @@ export default function FinancialScreen() {
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear] = useState(today.getFullYear());
   const [summary, setSummary] = useState<MonthlySummary | null>(null);
+  const [trend, setTrend] = useState<number[]>([]);
+  const [prevMonthTotal, setPrevMonthTotal] = useState(0);
 
   const load = useCallback(async () => {
     const s = await paymentsService.monthlySummary(year, month);
     setSummary(s);
+    const history = await paymentsService.lastSixMonths(year, month);
+    setTrend(history.map((h) => h.total));
+    setPrevMonthTotal(history.length >= 2 ? history[history.length - 2].total : 0);
   }, [year, month]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -87,6 +93,29 @@ export default function FinancialScreen() {
           <Text style={styles.heroSub}>
             {summary.paidCount} pagamentos · {summary.commissionsCount} comissões
           </Text>
+
+          {prevMonthTotal > 0 ? (
+            <View style={styles.trendChip}>
+              <Ionicons
+                name={summary.receivedTotal >= prevMonthTotal ? 'trending-up' : 'trending-down'}
+                size={10}
+                color="#B5D49B"
+              />
+              <Text style={styles.trendText}>
+                {summary.receivedTotal >= prevMonthTotal ? '+' : ''}
+                {prevMonthTotal > 0
+                  ? (((summary.receivedTotal - prevMonthTotal) / prevMonthTotal) * 100).toFixed(0)
+                  : '0'}
+                % vs mês anterior
+              </Text>
+            </View>
+          ) : null}
+
+          {trend.length > 0 ? (
+            <View style={styles.sparkWrap}>
+              <Sparkline values={trend} width={110} height={40} />
+            </View>
+          ) : null}
         </LinearGradient>
 
         <View style={styles.grid}>
@@ -244,6 +273,15 @@ const styles = StyleSheet.create({
   currency: { fontSize: 22, opacity: 0.7 },
   cents: { fontSize: 24, opacity: 0.5 },
   heroSub: { color: 'rgba(255,255,255,0.78)', fontSize: 13, marginTop: 8 },
+  trendChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    alignSelf: 'flex-start', marginTop: 12,
+    paddingHorizontal: 10, paddingVertical: 4,
+    backgroundColor: 'rgba(122,160,91,0.25)',
+    borderRadius: 999,
+  },
+  trendText: { color: '#B5D49B', fontFamily: fonts.uiSemibold, fontSize: 11 },
+  sparkWrap: { position: 'absolute', bottom: 16, right: 16, opacity: 0.7 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   metric: {
     flexBasis: '48%',

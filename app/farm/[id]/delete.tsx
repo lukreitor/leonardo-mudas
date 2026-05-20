@@ -7,11 +7,17 @@ import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedProps,
   withTiming,
   Easing,
   cancelAnimation,
   runOnJS,
 } from 'react-native-reanimated';
+import Svg, { Circle } from 'react-native-svg';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const RING_R = 18;
+const RING_CIRC = 2 * Math.PI * RING_R;
 
 import { farmsRepo } from '@/repositories/farms';
 import { farmsService, type FarmCounts } from '@/services/farms';
@@ -81,6 +87,10 @@ export default function DeleteFarmScreen() {
 
   const progressStyle = useAnimatedStyle(() => ({
     width: `${progress.value * 100}%`,
+  }));
+
+  const ringAnimatedProps = useAnimatedProps(() => ({
+    strokeDashoffset: RING_CIRC * (1 - progress.value),
   }));
 
   if (!farm || !counts) return <View style={{ flex: 1, backgroundColor: 'rgba(14,27,20,0.55)' }} />;
@@ -187,11 +197,29 @@ export default function DeleteFarmScreen() {
               onPressOut={stopHold}
               disabled={!nameMatches}
               style={[styles.holdBtn, !nameMatches && styles.holdBtnDisabled]}>
-              <Animated.View style={[styles.holdProgress, progressStyle]} />
               <View style={styles.holdContent}>
-                <Ionicons name="hand-left" size={18} color="white" />
+                <View style={styles.ringWrap}>
+                  <Svg width={44} height={44} viewBox="0 0 44 44">
+                    <Circle cx={22} cy={22} r={RING_R} stroke="rgba(255,255,255,0.18)" strokeWidth={3} fill="none" />
+                    <AnimatedCircle
+                      cx={22}
+                      cy={22}
+                      r={RING_R}
+                      stroke="white"
+                      strokeWidth={3}
+                      strokeLinecap="round"
+                      fill="none"
+                      strokeDasharray={RING_CIRC}
+                      animatedProps={ringAnimatedProps}
+                      transform="rotate(-90 22 22)"
+                    />
+                  </Svg>
+                  <View style={styles.ringIcon}>
+                    <Ionicons name="hand-left" size={16} color="white" />
+                  </View>
+                </View>
                 <Text style={styles.holdText}>
-                  {!nameMatches ? 'Digite o nome primeiro' : 'Mantenha pressionado'}
+                  {!nameMatches ? 'Digite o nome primeiro' : 'Mantenha pressionado 3s'}
                 </Text>
               </View>
             </Pressable>
@@ -375,19 +403,14 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   holdBtnDisabled: { opacity: 0.4 },
-  holdProgress: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-  },
   holdContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 12,
   },
+  ringWrap: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  ringIcon: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   holdText: { color: 'white', fontFamily: fonts.uiBold, fontSize: 14, letterSpacing: 0.3 },
   hint: { textAlign: 'center', fontSize: 12, color: colors.ink3, marginBottom: 14 },
   cancel: { padding: 14, alignItems: 'center', backgroundColor: 'rgba(26,58,46,0.05)', borderRadius: 14 },

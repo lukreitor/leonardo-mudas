@@ -6,6 +6,8 @@ import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import type { NoteWithMedia } from '@/services/notes';
 
+type ChipAction = { label: string; onPress?: () => void };
+
 const KIND_META: Record<string, { color: string; icon: string }> = {
   growth: { color: colors.broto, icon: 'leaf-outline' },
   water: { color: '#5C8C7D', icon: 'water-outline' },
@@ -14,13 +16,33 @@ const KIND_META: Record<string, { color: string; icon: string }> = {
   other: { color: colors.broto, icon: 'ellipse-outline' },
 };
 
-export function NoteBlock({ note, onPress }: { note: NoteWithMedia; onPress?: () => void }) {
+export function NoteBlock({
+  note,
+  onPress,
+  onAddPhoto,
+  onAddAudio,
+  onAddVideo,
+  onAddText,
+}: {
+  note: NoteWithMedia;
+  onPress?: () => void;
+  onAddPhoto?: () => void;
+  onAddAudio?: () => void;
+  onAddVideo?: () => void;
+  onAddText?: () => void;
+}) {
   const meta = KIND_META[note.kind ?? 'other'];
   const time = note.createdAt ? format(parseISO(note.createdAt), 'HH:mm') : '';
 
   const photos = note.media.filter((m) => m.type === 'photo');
   const videos = note.media.filter((m) => m.type === 'video');
   const audios = note.media.filter((m) => m.type === 'audio');
+
+  const chips: { label: string; icon: string; onPress?: () => void }[] = [];
+  if (onAddPhoto && photos.length === 0) chips.push({ label: 'foto', icon: 'image-outline', onPress: onAddPhoto });
+  if (onAddVideo && videos.length === 0) chips.push({ label: 'vídeo', icon: 'videocam-outline', onPress: onAddVideo });
+  if (onAddAudio && audios.length === 0) chips.push({ label: 'áudio', icon: 'mic-outline', onPress: onAddAudio });
+  if (onAddText && !note.noteText) chips.push({ label: 'texto', icon: 'create-outline', onPress: onAddText });
 
   return (
     <Pressable onPress={onPress} style={[styles.card, { borderLeftColor: meta.color }]}>
@@ -83,6 +105,17 @@ export function NoteBlock({ note, onPress }: { note: NoteWithMedia; onPress?: ()
       ))}
 
       {note.noteText ? <Text style={styles.body}>“{note.noteText}”</Text> : null}
+
+      {chips.length > 0 ? (
+        <View style={styles.chipsRow}>
+          {chips.map((c) => (
+            <Pressable key={c.label} onPress={c.onPress} style={styles.addChip}>
+              <Ionicons name={c.icon as any} size={11} color={colors.ink2} />
+              <Text style={styles.addChipText}>+ {c.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -153,5 +186,21 @@ const styles = StyleSheet.create({
   body: {
     fontFamily: fonts.displayItalic, fontStyle: 'italic',
     fontSize: 14, color: colors.ink1, lineHeight: 22,
+  },
+  chipsRow: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 6,
+    marginTop: 12, paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(26,58,46,0.1)',
+  },
+  addChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 5,
+    backgroundColor: 'rgba(26,58,46,0.05)',
+    borderRadius: 999,
+  },
+  addChipText: {
+    fontFamily: fonts.uiSemibold, fontSize: 10, color: colors.ink2,
+    letterSpacing: 0.2,
   },
 });

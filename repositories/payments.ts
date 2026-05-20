@@ -33,6 +33,31 @@ export const paymentsRepo = {
     return created;
   },
 
+  async existsForFarmAndDueMonth(farmId: number, year: number, month: number, kind: 'monthly'): Promise<boolean> {
+    const monthStr = String(month).padStart(2, '0');
+    const rows = await db
+      .select()
+      .from(payments)
+      .where(
+        and(
+          eq(payments.farmId, farmId),
+          eq(payments.kind, kind),
+          sql`strftime('%Y-%m', ${payments.dueDate}) = ${year + '-' + monthStr}`
+        )
+      )
+      .limit(1);
+    return rows.length > 0;
+  },
+
+  async markPendingAsOverdue(beforeISO: string): Promise<number> {
+    const result = await db
+      .update(payments)
+      .set({ status: 'overdue' })
+      .where(and(eq(payments.status, 'pending'), sql`${payments.dueDate} < ${beforeISO}`))
+      .returning({ id: payments.id });
+    return result.length;
+  },
+
   async markPaid(id: number, paidDate: Date = new Date()): Promise<void> {
     await db
       .update(payments)

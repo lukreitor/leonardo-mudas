@@ -3,6 +3,7 @@ import { visitsRepo, skippedRepo } from '../repositories/visits';
 import { weeksRepo } from '../repositories/weeks';
 import { paymentsRepo } from '../repositories/payments';
 import { currentWeek, type WeekRef } from '../lib/date';
+import { isFarmActiveThisWeek } from '../lib/frequency';
 import type { Farm, Visit } from '../db/schema';
 import type { FarmStatus } from '../lib/contracts';
 
@@ -27,16 +28,18 @@ export const visitsService = {
     const visitMap = new Map(visits.map((v) => [v.farmId, v]));
     const skippedMap = new Map(skipped.map((s) => [s.farmId, s]));
 
-    const result = farms.map((f): FarmWithStatus => {
-      if (visitMap.has(f.id)) return { ...f, status: 'visited', visitId: visitMap.get(f.id)!.id };
-      if (skippedMap.has(f.id)) return { ...f, status: 'skipped', skippedId: skippedMap.get(f.id)!.id };
-      return { ...f, status: 'pending' };
-    });
+    const result = farms
+      .filter((f) => isFarmActiveThisWeek(f, ref) || visitMap.has(f.id))
+      .map((f): FarmWithStatus => {
+        if (visitMap.has(f.id)) return { ...f, status: 'visited', visitId: visitMap.get(f.id)!.id };
+        if (skippedMap.has(f.id)) return { ...f, status: 'skipped', skippedId: skippedMap.get(f.id)!.id };
+        return { ...f, status: 'pending' };
+      });
 
     const visited = result.filter((r) => r.status === 'visited').length;
     const skippedC = result.filter((r) => r.status === 'skipped').length;
     const pending = result.filter((r) => r.status === 'pending').length;
-    const total = farms.length - skippedC;
+    const total = result.length - skippedC;
 
     const visitedDays = Array.from(
       new Set(

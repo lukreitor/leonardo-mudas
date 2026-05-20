@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import Animated, { useSharedValue, useAnimatedProps, withTiming, Easing } from 'react-native-reanimated';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop, Path } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,10 +45,21 @@ export function WeekProgressCard({ visited, total, weekNumber, pendingCount }: P
       style={styles.card}>
       <View pointerEvents="none" style={styles.leafBg}>
         <Svg viewBox="0 0 200 200" width={180} height={180}>
-          <Path d="M100 20 Q40 60 30 140 Q50 180 100 180 Q150 180 170 140 Q160 60 100 20 Z" fill="rgba(255,255,255,0.08)" />
-          <Path d="M100 30 L100 170" stroke="rgba(0,0,0,0.18)" strokeWidth={2} />
+          <Path
+            d="M100 20 Q40 60 30 140 Q50 180 100 180 Q150 180 170 140 Q160 60 100 20 Z"
+            fill="rgba(255,255,255,0.1)"
+          />
+          <Path d="M100 30 L100 170" stroke="rgba(0,0,0,0.22)" strokeWidth={2} />
+          <Path
+            d="M100 60 Q70 70 50 100 M100 90 Q70 100 55 130 M100 120 Q70 130 60 155 M100 60 Q130 70 150 100 M100 90 Q130 100 145 130 M100 120 Q130 130 140 155"
+            stroke="rgba(0,0,0,0.18)"
+            strokeWidth={1.5}
+            fill="none"
+          />
         </Svg>
       </View>
+
+      <View pointerEvents="none" style={styles.orangeGlow} />
 
       <View style={styles.topRow}>
         <Text style={styles.label}>Esta semana</Text>
@@ -93,9 +105,12 @@ export function WeekProgressCard({ visited, total, weekNumber, pendingCount }: P
               : `faltam ${pendingCount} ${pendingCount === 1 ? 'fazenda' : 'fazendas'} pra fechar`}
           </Text>
           {pendingCount > 0 ? (
-            <View style={styles.cta}>
-              <Ionicons name="arrow-forward" size={12} color="white" />
-              <Text style={styles.ctaText}>ver pendentes</Text>
+            <View style={styles.ctaWrap}>
+              <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFill} />
+              <View style={styles.ctaInner}>
+                <Ionicons name="arrow-forward" size={12} color="white" />
+                <Text style={styles.ctaText}>ver pendentes</Text>
+              </View>
             </View>
           ) : null}
         </View>
@@ -107,7 +122,7 @@ export function WeekProgressCard({ visited, total, weekNumber, pendingCount }: P
 const styles = StyleSheet.create({
   card: {
     borderRadius: 28,
-    padding: 24,
+    padding: 28,
     position: 'relative',
     overflow: 'hidden',
     shadowColor: colors.mata,
@@ -118,21 +133,32 @@ const styles = StyleSheet.create({
   },
   leafBg: {
     position: 'absolute',
-    right: -30,
-    bottom: -40,
-    opacity: 0.8,
+    right: -10,
+    bottom: -20,
+    opacity: 0.18,
+  },
+  orangeGlow: {
+    position: 'absolute',
+    width: 280,
+    height: 280,
+    right: -80,
+    bottom: -100,
+    borderRadius: 140,
+    backgroundColor: 'rgba(232,160,76,0.25)',
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 6,
+    position: 'relative',
+    zIndex: 2,
   },
   label: {
     color: 'rgba(255,255,255,0.7)',
     fontFamily: fonts.uiSemibold,
     fontSize: 12,
-    letterSpacing: 1.2,
+    letterSpacing: 1.4,
     textTransform: 'uppercase',
   },
   weekBadge: {
@@ -144,6 +170,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 22,
+    marginTop: 22,
+    position: 'relative',
+    zIndex: 2,
   },
   ringWrap: { width: 120, height: 120, position: 'relative' },
   ringCenter: {
@@ -179,16 +208,19 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginTop: 4,
   },
-  cta: {
+  ctaWrap: {
+    marginTop: 14,
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  ctaInner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 14,
-    backgroundColor: 'rgba(255,255,255,0.14)',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 999,
-    alignSelf: 'flex-start',
   },
   ctaText: {
     color: 'white',

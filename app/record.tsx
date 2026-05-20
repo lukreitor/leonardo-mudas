@@ -6,13 +6,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
 import { useAudioRecorder, RecordingPresets, AudioModule } from 'expo-audio';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  withSequence,
+  Easing,
+} from 'react-native-reanimated';
 
-import { colors } from '@/theme/colors';
+import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { notesService } from '@/services/notes';
+import { farmsRepo } from '@/repositories/farms';
+import { initialsOf } from '@/lib/initials';
+import { RecordWaveform } from '@/components/RecordWaveform';
+import type { Farm } from '@/db/schema';
 
 type Mode = 'audio' | 'photo' | 'video' | 'text';
 
@@ -21,6 +31,7 @@ export default function RecordScreen() {
   const { farmId } = useLocalSearchParams<{ farmId: string }>();
   const farmIdNum = Number(farmId);
 
+  const [farm, setFarm] = useState<Farm | null>(null);
   const [mode, setMode] = useState<Mode>('audio');
   const [elapsed, setElapsed] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
@@ -30,7 +41,8 @@ export default function RecordScreen() {
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const tickerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const pulse = useSharedValue(1);
+  const recPulse = useSharedValue(1);
+  const recDot = useSharedValue(1);
 
   useEffect(() => {
     (async () => {
@@ -38,9 +50,30 @@ export default function RecordScreen() {
       if (!status.granted) {
         Alert.alert('Permissão negada', 'Habilite o microfone nas configurações para gravar áudio.');
       }
+      if (farmIdNum) {
+        const f = await farmsRepo.getById(farmIdNum);
+        setFarm(f);
+      }
     })();
-    pulse.value = withRepeat(withTiming(1.08, { duration: 1000, easing: Easing.inOut(Easing.sin) }), -1, true);
-  }, [pulse]);
+  }, [farmIdNum]);
+
+  useEffect(() => {
+    if (isRecording) {
+      recPulse.value = withRepeat(
+        withTiming(1.12, { duration: 1000, easing: Easing.inOut(Easing.sin) }),
+        -1,
+        true
+      );
+      recDot.value = withRepeat(
+        withSequence(withTiming(1, { duration: 600 }), withTiming(0.25, { duration: 600 })),
+        -1,
+        true
+      );
+    } else {
+      recPulse.value = withTiming(1);
+      recDot.value = withTiming(1);
+    }
+  }, [isRecording, recPulse, recDot]);
 
   useEffect(() => {
     return () => {
@@ -48,33 +81,35 @@ export default function RecordScreen() {
     };
   }, []);
 
-  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: isRecording ? pulse.value : 1 }] }));
+  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: recPulse.value }] }));
+  const recDotStyle = useAnimatedStyle(() => ({ opacity: recDot.value }));
 
   const startRecording = useCallback(async () => {
     try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       await audioRecorder.prepareToRecordAsync();
       audioRecorder.record();
       setIsRecording(true);
       setElapsed(0);
       tickerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch (err: any) {
       Alert.alert('Erro', err?.message ?? 'Não foi possível gravar');
     }
   }, [audioRecorder]);
 
-  const stopRecording = useCallback(async () => {
+  const stopAndSave = useCallback(async () => {
     if (!isRecording) return;
     try {
       if (tickerRef.current) clearInterval(tickerRef.current);
       await audioRecorder.stop();
       setIsRecording(false);
       const uri = audioRecorder.uri;
-      if (!uri) return;
-
+      if (!uri) {
+        router.back();
+        return;
+      }
       const note = await notesService.createNote(farmIdNum, { title: title || 'Áudio', kind: 'talk' });
       await notesService.addMedia(note.id, { type: 'audio', filePath: uri, durationSec: elapsed });
-
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (err: any) {
@@ -141,17 +176,30 @@ export default function RecordScreen() {
     return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   };
 
+  const farmAvatarColor = farm?.colorToken ?? farmColors[(farmIdNum - 1) % farmColors.length];
+
   return (
-    <LinearGradient colors={[colors.mata, colors.noite]} style={styles.root}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+    <View style={styles.root}>
+      <LinearGradient
+        colors={[colors.mata, colors.noite]}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+      />
+      <View pointerEvents="none" style={styles.ambientTop} />
+      <View pointerEvents="none" style={styles.ambientBottom} />
+
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1 }}>
           <View style={styles.topRow}>
             <Pressable onPress={() => router.back()} style={styles.cancel}>
               <Text style={styles.cancelText}>Cancelar</Text>
             </Pressable>
             <View style={styles.farmChip}>
-              <Ionicons name="leaf" size={14} color={colors.mangaSoft} />
-              <Text style={styles.farmChipText}>Fazenda #{farmId ?? '?'}</Text>
+              <View style={[styles.farmAv, { backgroundColor: farmAvatarColor }]}>
+                <Text style={styles.farmAvText}>{farm ? initialsOf(farm.name) : '?'}</Text>
+              </View>
+              <Text style={styles.farmChipText}>{farm?.name ?? 'Fazenda'}</Text>
             </View>
           </View>
 
@@ -169,9 +217,14 @@ export default function RecordScreen() {
             <View style={styles.center}>
               {mode === 'audio' ? (
                 <>
-                  <Text style={styles.timer}>{formatTime(elapsed)}</Text>
+                  <View style={styles.timerRow}>
+                    {isRecording ? (
+                      <Animated.View style={[styles.recDot, recDotStyle]} />
+                    ) : null}
+                    <Text style={styles.timer}>{formatTime(elapsed)}</Text>
+                  </View>
                   <Text style={styles.hint}>
-                    {isRecording ? 'gravando · toque para parar' : 'toque para gravar áudio'}
+                    {isRecording ? 'gravando áudio · solte para finalizar' : 'segure o botão para gravar'}
                   </Text>
                 </>
               ) : mode === 'text' ? (
@@ -199,38 +252,44 @@ export default function RecordScreen() {
               )}
             </View>
 
+            {mode === 'audio' ? (
+              <View style={styles.wavefWrap}>
+                <RecordWaveform active={isRecording} />
+              </View>
+            ) : null}
+
             <View style={styles.bottom}>
               <Animated.View style={pulseStyle}>
-                <Pressable
-                  style={styles.recordBtn}
-                  onPress={
-                    mode === 'audio'
-                      ? isRecording
-                        ? stopRecording
-                        : startRecording
-                      : mode === 'photo'
-                        ? takePhoto
-                        : mode === 'video'
-                          ? recordVideo
-                          : saveText
-                  }>
-                  {mode === 'audio' ? (
-                    isRecording ? (
-                      <View style={styles.recordSquare} />
+                {mode === 'audio' ? (
+                  <Pressable
+                    onPressIn={startRecording}
+                    onPressOut={stopAndSave}
+                    style={styles.recordBtn}>
+                    <View style={styles.recordRingOuter} />
+                    <View style={styles.recordRingMid} />
+                    <View style={isRecording ? styles.recordSquare : styles.recordInner} />
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    style={styles.recordBtn}
+                    onPress={
+                      mode === 'photo' ? takePhoto : mode === 'video' ? recordVideo : saveText
+                    }>
+                    {mode === 'text' ? (
+                      <Ionicons name="checkmark" size={36} color="white" />
                     ) : (
-                      <View style={styles.recordInner} />
-                    )
-                  ) : mode === 'text' ? (
-                    <Ionicons name="checkmark" size={36} color="white" />
-                  ) : (
-                    <Ionicons name={mode === 'photo' ? 'camera' : 'videocam'} size={32} color="white" />
-                  )}
-                </Pressable>
+                      <Ionicons name={mode === 'photo' ? 'camera' : 'videocam'} size={32} color="white" />
+                    )}
+                  </Pressable>
+                )}
               </Animated.View>
 
               <View style={styles.modes}>
                 {(['audio', 'photo', 'video', 'text'] as Mode[]).map((m) => (
-                  <Pressable key={m} onPress={() => setMode(m)} style={[styles.mode, mode === m && styles.modeActive]}>
+                  <Pressable
+                    key={m}
+                    onPress={() => !isRecording && setMode(m)}
+                    style={[styles.mode, mode === m && styles.modeActive]}>
                     <Text style={[styles.modeText, mode === m && styles.modeActiveText]}>
                       {m === 'audio' ? 'Áudio' : m === 'photo' ? 'Foto' : m === 'video' ? 'Vídeo' : 'Nota'}
                     </Text>
@@ -241,12 +300,30 @@ export default function RecordScreen() {
           </ScrollView>
         </SafeAreaView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, backgroundColor: colors.noite },
+  ambientTop: {
+    position: 'absolute',
+    top: -100,
+    left: -50,
+    width: 500,
+    height: 400,
+    borderRadius: 250,
+    backgroundColor: 'rgba(232,160,76,0.12)',
+  },
+  ambientBottom: {
+    position: 'absolute',
+    bottom: -100,
+    right: -50,
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+    backgroundColor: 'rgba(74,124,89,0.18)',
+  },
   topRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 24, paddingTop: 12,
@@ -256,23 +333,35 @@ const styles = StyleSheet.create({
   farmChip: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 999,
   },
+  farmAv: {
+    width: 28, height: 28, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  farmAvText: { color: 'white', fontFamily: fonts.displayBold, fontSize: 12 },
   farmChipText: { color: 'white', fontFamily: fonts.uiSemibold, fontSize: 13 },
-  titleWrap: { paddingHorizontal: 32, paddingTop: 32 },
+  titleWrap: { paddingHorizontal: 32, paddingTop: 24 },
   titleInput: {
     color: 'white',
     fontFamily: fonts.displayItalic,
     fontStyle: 'italic',
-    fontSize: 17,
+    fontSize: 16,
     textAlign: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.12)',
   },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, minHeight: 280 },
+  center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, marginTop: 32, minHeight: 200 },
+  timerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  recDot: {
+    width: 12, height: 12, borderRadius: 6,
+    backgroundColor: '#EF4444',
+    shadowColor: '#EF4444', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 8, elevation: 4,
+  },
   timer: { color: 'white', fontFamily: fonts.display, fontSize: 72, letterSpacing: -2.6 },
-  hint: { color: colors.mangaSoft, fontFamily: fonts.displayItalic, fontStyle: 'italic', fontSize: 15, marginTop: 6 },
+  hint: { color: colors.mangaSoft, fontFamily: fonts.displayItalic, fontStyle: 'italic', fontSize: 15, marginTop: 8, textAlign: 'center' },
   captureHint: { alignItems: 'center', gap: 12 },
   textWrap: { width: '100%' },
   textArea: {
@@ -286,16 +375,30 @@ const styles = StyleSheet.create({
     minHeight: 180,
     textAlignVertical: 'top',
   },
-  bottom: { alignItems: 'center', gap: 22, paddingBottom: 20, paddingTop: 12 },
+  wavefWrap: { marginTop: 28 },
+  bottom: { alignItems: 'center', gap: 22, paddingBottom: 20, paddingTop: 24 },
   recordBtn: {
     width: 100, height: 100, borderRadius: 50,
     backgroundColor: colors.manga,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: colors.mangaDeep, shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.4, shadowRadius: 48, elevation: 12,
+    position: 'relative',
   },
-  recordInner: { width: 32, height: 32, backgroundColor: 'white', borderRadius: 8 },
-  recordSquare: { width: 24, height: 24, backgroundColor: 'white', borderRadius: 4 },
+  recordRingOuter: {
+    position: 'absolute',
+    top: -22, left: -22, right: -22, bottom: -22,
+    borderRadius: 72,
+    backgroundColor: 'rgba(232,160,76,0.08)',
+  },
+  recordRingMid: {
+    position: 'absolute',
+    top: -10, left: -10, right: -10, bottom: -10,
+    borderRadius: 60,
+    backgroundColor: 'rgba(232,160,76,0.15)',
+  },
+  recordInner: { width: 32, height: 32, backgroundColor: 'white', borderRadius: 16 },
+  recordSquare: { width: 28, height: 28, backgroundColor: 'white', borderRadius: 4 },
   modes: {
     flexDirection: 'row', gap: 4,
     backgroundColor: 'rgba(255,255,255,0.08)',

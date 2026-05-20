@@ -21,6 +21,7 @@ import {
 
 import { useDbMigrations } from '@/db/migrate';
 import { runSeedIfNeeded } from '@/services/seed';
+import { maintenanceService } from '@/services/maintenance';
 import { useAuthStore } from '@/stores/auth';
 import { colors } from '@/theme/colors';
 
@@ -50,7 +51,11 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (migrationsReady && !seeded) {
-      runSeedIfNeeded().then(() => setSeeded(true));
+      (async () => {
+        await runSeedIfNeeded();
+        await maintenanceService.runStartupChecks();
+        setSeeded(true);
+      })();
     }
   }, [migrationsReady, seeded]);
 

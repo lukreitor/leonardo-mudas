@@ -6,9 +6,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { farmsRepo } from '@/repositories/farms';
+import { visitsRepo } from '@/repositories/visits';
+import { weeksRepo } from '@/repositories/weeks';
 import { notesService, type NoteWithMedia } from '@/services/notes';
 import { farmsService, type WeekStat } from '@/services/farms';
 import { paymentsService } from '@/services/payments';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { NoteBlock } from '@/components/NoteBlock';
 import { YearHeatmap } from '@/components/YearHeatmap';
 import { PaymentCard } from '@/components/PaymentCard';
@@ -28,6 +32,7 @@ export default function FarmDetailScreen() {
   const [selectedWeek, setSelectedWeek] = useState<WeekRef>(currentWeek());
   const [receivedMonth, setReceivedMonth] = useState(0);
   const [paymentStatus, setPaymentStatus] = useState<'paid' | 'pending' | 'overdue' | 'none'>('none');
+  const [visitedAt, setVisitedAt] = useState<string | null>(null);
 
   const todayWeek = useMemo(() => currentWeek(), []);
   const isCurrentWeek = selectedWeek.year === todayWeek.year && selectedWeek.week === todayWeek.week;
@@ -40,6 +45,11 @@ export default function FarmDetailScreen() {
     setNotes(ns);
     const stats = await farmsService.getWeekStats(f.id, selectedWeek.year);
     setWeekStats(stats);
+
+    const week = await weeksRepo.findOrCreate(selectedWeek);
+    const visit = await visitsRepo.getByFarmAndWeek(f.id, week.id);
+    setVisitedAt(visit?.visitedDate ?? null);
+
     const today = new Date();
     const summary = await paymentsService.monthlySummary(today.getFullYear(), today.getMonth() + 1);
     const farmRow = summary.byFarm.find((r) => r.farm.id === f.id);
@@ -140,6 +150,17 @@ export default function FarmDetailScreen() {
           </Pressable>
         ) : null}
 
+        {visitedAt ? (
+          <View style={styles.visitStampWrap}>
+            <View style={styles.visitStamp}>
+              <Ionicons name="checkmark-circle" size={14} color={colors.broto} />
+              <Text style={styles.visitStampText}>
+                Visitada {format(parseISO(visitedAt), "EEEE", { locale: ptBR })} · {format(parseISO(visitedAt), 'HH:mm')}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>Anotações</Text>
           <Pressable
@@ -168,11 +189,30 @@ export default function FarmDetailScreen() {
             ) : null}
           </View>
         ) : (
-          <View style={styles.notesList}>
-            {notes.map((n) => (
-              <NoteBlock key={n.id} note={n} />
-            ))}
-          </View>
+          <>
+            <View style={styles.notesList}>
+              {notes.map((n) => (
+                <NoteBlock
+                  key={n.id}
+                  note={n}
+                  onAddPhoto={isCurrentWeek ? () => router.push(`/record?farmId=${farm.id}&mode=photo` as any) : undefined}
+                  onAddAudio={isCurrentWeek ? () => router.push(`/record?farmId=${farm.id}&mode=audio` as any) : undefined}
+                  onAddVideo={isCurrentWeek ? () => router.push(`/record?farmId=${farm.id}&mode=video` as any) : undefined}
+                  onAddText={isCurrentWeek ? () => router.push(`/record?farmId=${farm.id}&mode=text` as any) : undefined}
+                />
+              ))}
+            </View>
+            {isCurrentWeek ? (
+              <Pressable
+                style={styles.newNoteBtn}
+                onPress={() => router.push(`/record?farmId=${farm.id}` as any)}>
+                <View style={styles.newNoteIcon}>
+                  <Ionicons name="add" size={14} color="white" />
+                </View>
+                <Text style={styles.newNoteText}>Nova anotação</Text>
+              </Pressable>
+            ) : null}
+          </>
         )}
 
         <View style={styles.sectionHead}>
@@ -318,5 +358,42 @@ const styles = StyleSheet.create({
   },
   emptyCtaText: { color: 'white', fontFamily: fonts.uiSemibold, fontSize: 14 },
   notesList: { paddingHorizontal: 20, gap: 10 },
+  newNoteBtn: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    padding: 18,
+    backgroundColor: 'rgba(74,124,89,0.05)',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(74,124,89,0.3)',
+    borderRadius: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  newNoteIcon: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: colors.broto,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  newNoteText: { color: colors.broto, fontFamily: fonts.uiSemibold, fontSize: 14 },
+  visitStampWrap: { paddingHorizontal: 20, marginTop: 10 },
+  visitStamp: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    backgroundColor: 'rgba(74,124,89,0.08)',
+    borderRadius: 12,
+  },
+  visitStampText: {
+    fontFamily: fonts.uiSemibold,
+    fontSize: 12,
+    color: colors.mata,
+    textTransform: 'capitalize',
+  },
   recentList: { paddingHorizontal: 20, gap: 8 },
 });

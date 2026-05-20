@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -91,7 +91,14 @@ export default function LoginScreen() {
   return (
     <LinearGradient colors={['#F8F2E5', '#EFE5D0']} style={{ flex: 1 }}>
       <SafeAreaView style={{ flex: 1 }}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}>
+          <ScrollView
+            contentContainerStyle={styles.container}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
           <View style={styles.logoWrap}>
             <Svg width={88} height={88} viewBox="0 0 88 88">
               <Ellipse cx={44} cy={68} rx={22} ry={8} fill="#8B6F47" opacity={0.85} />
@@ -159,6 +166,7 @@ export default function LoginScreen() {
               <Text style={styles.bioText}>Entrar com biometria</Text>
             </Pressable>
           ) : null}
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </LinearGradient>
@@ -166,7 +174,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 36, justifyContent: 'center' },
+  container: { flexGrow: 1, paddingHorizontal: 36, paddingVertical: 24, justifyContent: 'center' },
   logoWrap: { alignItems: 'center', marginBottom: 56 },
   title: {
     fontFamily: fonts.display,
