@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
 const SQLITE_PATH = `${FileSystem.documentDirectory}SQLite/leonardo-mudas.db`;

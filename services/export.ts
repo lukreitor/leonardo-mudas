@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { db } from '../db/client';
 import { farms as farmsTable, visits as visitsTable, notes as notesTable, media as mediaTable, weeks as weeksTable } from '../db/schema';

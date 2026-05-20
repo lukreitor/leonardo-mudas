@@ -13,7 +13,13 @@ export type MonthlySummary = {
   upcomingMonthly: number;
   paidCount: number;
   commissionsCount: number;
-  byFarm: { farm: Farm; receivedThisMonth: number; status: 'paid' | 'pending' | 'overdue' | 'none' }[];
+  byFarm: {
+    farm: Farm;
+    receivedThisMonth: number;
+    status: 'paid' | 'pending' | 'overdue' | 'none';
+    nextDueDate: string | null;
+    nextDueLabel: string | null;
+  }[];
 };
 
 function monthBounds(year: number, month: number) {
@@ -64,7 +70,9 @@ export const paymentsService = {
           : receivedThisMonth > 0
             ? ('paid' as const)
             : ('none' as const);
-      return { farm, receivedThisMonth, status };
+
+      const { nextDueDate, nextDueLabel } = computeNextDue(farm);
+      return { farm, receivedThisMonth, status, nextDueDate, nextDueLabel };
     });
 
     return {
@@ -92,6 +100,30 @@ export const paymentsService = {
     });
   },
 };
+
+function computeNextDue(farm: Farm): { nextDueDate: string | null; nextDueLabel: string | null } {
+  if ((farm.paymentType !== 'monthly' && farm.paymentType !== 'mixed') || !farm.monthlyDueDay) {
+    if (farm.paymentType === 'visit' || farm.paymentType === 'commission') {
+      return { nextDueDate: null, nextDueLabel: 'sob demanda' };
+    }
+    return { nextDueDate: null, nextDueLabel: null };
+  }
+  const now = new Date();
+  const day = Math.min(Math.max(farm.monthlyDueDay, 1), 28);
+  let nextDue = new Date(now.getFullYear(), now.getMonth(), day);
+  if (nextDue < now) {
+    nextDue = new Date(now.getFullYear(), now.getMonth() + 1, day);
+  }
+  const diffDays = Math.ceil((nextDue.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const label = diffDays === 0
+    ? 'vence hoje'
+    : diffDays === 1
+      ? 'vence amanhã'
+      : diffDays < 0
+        ? `${Math.abs(diffDays)}d atrasado`
+        : `vence em ${diffDays}d`;
+  return { nextDueDate: nextDue.toISOString(), nextDueLabel: label };
+}
 
 export function formatStructure(farm: Farm): string {
   const parts: string[] = [];

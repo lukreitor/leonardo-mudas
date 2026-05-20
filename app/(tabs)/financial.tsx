@@ -103,10 +103,8 @@ export default function FinancialScreen() {
               />
               <Text style={styles.trendText}>
                 {summary.receivedTotal >= prevMonthTotal ? '+' : ''}
-                {prevMonthTotal > 0
-                  ? (((summary.receivedTotal - prevMonthTotal) / prevMonthTotal) * 100).toFixed(0)
-                  : '0'}
-                % vs mês anterior
+                {(((summary.receivedTotal - prevMonthTotal) / prevMonthTotal) * 100).toFixed(0)}
+                % vs {MONTHS[(month - 2 + 12) % 12]}
               </Text>
             </View>
           ) : null}
@@ -184,6 +182,22 @@ export default function FinancialScreen() {
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.rowName}>{row.farm.name}</Text>
                   <Text style={styles.rowStruct}>{formatStructure(row.farm)}</Text>
+                  {row.nextDueLabel ? (
+                    <View style={styles.dueRow}>
+                      <Ionicons
+                        name={row.nextDueLabel.includes('atrasado') ? 'warning-outline' : 'calendar-outline'}
+                        size={10}
+                        color={row.nextDueLabel.includes('atrasado') ? colors.danger : colors.ink3}
+                      />
+                      <Text
+                        style={[
+                          styles.dueText,
+                          row.nextDueLabel.includes('atrasado') && { color: colors.danger },
+                        ]}>
+                        {row.nextDueLabel}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={styles.rowValue}>
@@ -322,6 +336,13 @@ const styles = StyleSheet.create({
   avatarText: { color: 'white', fontFamily: fonts.displayBold, fontSize: 16, letterSpacing: -0.3 },
   rowName: { fontFamily: fonts.uiSemibold, fontSize: 15, color: colors.ink1, letterSpacing: -0.2 },
   rowStruct: { fontFamily: fonts.ui, fontSize: 11, color: colors.ink3, marginTop: 3 },
+  dueRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  dueText: {
+    fontFamily: fonts.uiSemibold,
+    fontSize: 10,
+    color: colors.ink2,
+    letterSpacing: 0.2,
+  },
   rowValue: { fontFamily: fonts.displayBold, fontSize: 16, color: colors.mata, letterSpacing: -0.3 },
   rowCurrency: { fontSize: 10, opacity: 0.55 },
   rowStatus: {

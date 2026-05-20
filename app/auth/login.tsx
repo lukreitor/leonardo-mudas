@@ -61,6 +61,17 @@ export default function LoginScreen() {
         return;
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      if (isFirstUser) {
+        const bioOk = await authService.isBiometricSupported();
+        if (bioOk) {
+          const confirmed = await authService.promptBiometric('Ative a biometria para entrar mais rápido');
+          if (confirmed) {
+            await authService.setBiometricEnabled(true);
+          }
+        }
+      }
+
       setSession(session);
       router.replace('/(tabs)' as any);
     } catch (err: any) {

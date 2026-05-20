@@ -48,39 +48,32 @@ export function WeekProgressCard({ visited, total, weekNumber, pendingCount, wee
       style={styles.card}>
 
       {/* Radial orange glow circle — bottom right (mockup ::before) */}
-      <Svg pointerEvents="none" style={[StyleSheet.absoluteFill]}>
-        <Defs>
-          <RadialGradient id="orangeGlow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
-            <Stop offset="0" stopColor="#E8A04C" stopOpacity="0.25" />
-            <Stop offset="0.7" stopColor="#E8A04C" stopOpacity="0" />
-            <Stop offset="1" stopColor="#E8A04C" stopOpacity="0" />
-          </RadialGradient>
-        </Defs>
-      </Svg>
       <View pointerEvents="none" style={styles.orangeGlowWrap}>
-        <Svg width={280} height={280}>
+        <Svg width={300} height={300}>
           <Defs>
-            <RadialGradient id="og2" cx="50%" cy="50%" r="50%">
-              <Stop offset="0" stopColor="#E8A04C" stopOpacity="0.25" />
-              <Stop offset="0.7" stopColor="#E8A04C" stopOpacity="0" />
+            <RadialGradient id="og2" cx="50%" cy="50%" rx="50%" ry="50%" fx="50%" fy="50%">
+              <Stop offset="0" stopColor="#E8A04C" stopOpacity="0.32" />
+              <Stop offset="0.55" stopColor="#E8A04C" stopOpacity="0.12" />
+              <Stop offset="0.85" stopColor="#E8A04C" stopOpacity="0.02" />
+              <Stop offset="1" stopColor="#E8A04C" stopOpacity="0" />
             </RadialGradient>
           </Defs>
-          <Circle cx={140} cy={140} r={140} fill="url(#og2)" />
+          <Circle cx={150} cy={150} r={150} fill="url(#og2)" />
         </Svg>
       </View>
 
-      {/* Leaf decorative bottom-right */}
+      {/* Leaf decorative bottom-right — fill white com parent opacity */}
       <View pointerEvents="none" style={styles.leafBg}>
-        <Svg viewBox="0 0 200 200" width={180} height={180}>
+        <Svg viewBox="0 0 200 200" width={200} height={200}>
           <Path
             d="M100 20 Q40 60 30 140 Q50 180 100 180 Q150 180 170 140 Q160 60 100 20 Z"
-            fill="rgba(255,255,255,0.1)"
+            fill="white"
           />
-          <Path d="M100 30 L100 170" stroke="rgba(0,0,0,0.22)" strokeWidth={2} />
+          <Path d="M100 30 L100 170" stroke="rgba(0,0,0,0.3)" strokeWidth={2.5} />
           <Path
             d="M100 60 Q70 70 50 100 M100 90 Q70 100 55 130 M100 120 Q70 130 60 155 M100 60 Q130 70 150 100 M100 90 Q130 100 145 130 M100 120 Q130 130 140 155"
-            stroke="rgba(0,0,0,0.18)"
-            strokeWidth={1.5}
+            stroke="rgba(0,0,0,0.25)"
+            strokeWidth={1.8}
             fill="none"
           />
         </Svg>
@@ -170,16 +163,16 @@ const styles = StyleSheet.create({
   },
   orangeGlowWrap: {
     position: 'absolute',
-    width: 280,
-    height: 280,
-    right: -80,
-    bottom: -100,
+    width: 300,
+    height: 300,
+    right: -90,
+    bottom: -110,
   },
   leafBg: {
     position: 'absolute',
-    right: -10,
-    bottom: -20,
-    opacity: 0.18,
+    right: -16,
+    bottom: -24,
+    opacity: 0.22,
   },
   topRow: {
     flexDirection: 'row',

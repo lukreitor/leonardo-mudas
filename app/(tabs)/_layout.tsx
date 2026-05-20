@@ -69,7 +69,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="person-outline" size={22} color={color} />,
         }}
       />
-      <Tabs.Screen name="explore" options={{ href: null }} />
     </Tabs>
   );
 }
