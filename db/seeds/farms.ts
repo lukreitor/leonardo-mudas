@@ -18,11 +18,13 @@ export const SEED_FARMS: NewFarm[] = [
   'Igor e Ricardo',
   'Chicão',
   'Jeová',
-  'Ribeiro Lote 1 e 2',
+  'Ribeiro Lote 1',
+  'Ribeiro Lote 2',
   'Ribeiro Lote 3',
+  'Patricia',
 ].map((name, idx) => ({
   name,
-  colorToken: farmColors[idx],
+  colorToken: farmColors[idx % farmColors.length],
   visitFrequency: 'weekly' as const,
   paymentType: 'none' as const,
 }));
