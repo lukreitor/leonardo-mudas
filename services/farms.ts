@@ -101,4 +101,17 @@ export const farmsService = {
     }
     await farmsRepo.hardDelete(farmId);
   },
+
+  async moveToTrashWithGrace(farmId: number): Promise<void> {
+    await farmsRepo.moveToTrash(farmId);
+  },
+
+  async purgeExpiredTrash(): Promise<number> {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const ids = await farmsRepo.purgeExpiredTrash(cutoff);
+    for (const id of ids) {
+      await this.hardDeleteWithCascade(id);
+    }
+    return ids.length;
+  },
 };

@@ -124,6 +124,7 @@ export default function RootLayout() {
           options={{ presentation: 'transparentModal', animation: 'fade', contentStyle: { backgroundColor: 'transparent' } }}
         />
         <Stack.Screen name="payments-list" options={{ presentation: 'card' }} />
+        <Stack.Screen name="map" options={{ presentation: 'card' }} />
         <Stack.Screen name="record" options={{ presentation: 'fullScreenModal' }} />
       </Stack>
       <StatusBar style="dark" />

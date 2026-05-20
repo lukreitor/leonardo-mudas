@@ -37,6 +37,7 @@ export const farms = sqliteTable('farms', {
   visitBiweeklyParity: text('visit_biweekly_parity').$type<'even' | 'odd'>(),
 
   deletedAt: text('deleted_at'),
+  trashedAt: text('trashed_at'),
   createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
 });
 

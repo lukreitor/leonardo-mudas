@@ -61,7 +61,7 @@ export default function DeleteFarmScreen() {
     holdingRef.current = false;
     setHoldDone(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    await farmsService.hardDeleteWithCascade(farmId);
+    await farmsService.moveToTrashWithGrace(farmId);
     router.back();
     router.back();
   }, [farmId, router]);
@@ -144,8 +144,8 @@ export default function DeleteFarmScreen() {
             <View style={styles.warnIcon}>
               <Ionicons name="warning" size={32} color={colors.danger} />
             </View>
-            <Text style={styles.title}>Excluir definitivamente?</Text>
-            <Text style={styles.subtitle}>{farm.name} · esta ação não tem volta</Text>
+            <Text style={styles.title}>Mover para lixeira?</Text>
+            <Text style={styles.subtitle}>{farm.name} · 30 dias pra desfazer antes de apagar de vez</Text>
 
             <View style={styles.contentBox}>
               <Text style={styles.contentLabel}>Você vai apagar</Text>

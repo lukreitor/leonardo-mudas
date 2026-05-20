@@ -20,6 +20,7 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 import { colors, shadows } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
+import { useThemeColors } from '@/theme/hook';
 import type { FarmStatus } from '@/lib/contracts';
 
 type Props = {
@@ -38,6 +39,8 @@ type Props = {
 const LONG_PRESS_MS = 1500;
 
 export function FarmCard({ name, meta, avatarColor, initials, status, onTap, onLongPress, onOpen, onPreview }: Props) {
+  const { colors: theme, mode } = useThemeColors();
+  const isDark = mode === 'dark';
   const scale = useSharedValue(1);
   const tickProgress = useSharedValue(status === 'visited' ? 1 : 0);
   const opacity = useSharedValue(status === 'skipped' ? 0.55 : 1);
@@ -92,7 +95,13 @@ export function FarmCard({ name, meta, avatarColor, initials, status, onTap, onL
       onPressOut={handlePressOut}
       delayLongPress={LONG_PRESS_MS}
       android_disableSound>
-      <Animated.View style={[styles.card, status === 'visited' && styles.cardVisited, containerStyle]}>
+      <Animated.View
+        style={[
+          styles.card,
+          { backgroundColor: theme.neblina, borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(26,58,46,0.05)' },
+          status === 'visited' && styles.cardVisited,
+          containerStyle,
+        ]}>
         {status === 'visited' ? (
           <LinearGradient
             colors={['rgba(122,160,91,0.08)', 'rgba(74,124,89,0.04)']}
@@ -106,8 +115,8 @@ export function FarmCard({ name, meta, avatarColor, initials, status, onTap, onL
         </View>
 
         <View style={styles.info}>
-          <Text style={styles.name}>{name}</Text>
-          {meta ? <Text style={styles.meta}>{meta}</Text> : null}
+          <Text style={[styles.name, { color: theme.ink1 }]}>{name}</Text>
+          {meta ? <Text style={[styles.meta, { color: theme.ink3 }]}>{meta}</Text> : null}
           {status === 'skipped' ? (
             <View style={styles.skippedBadge}>
               <Ionicons name="moon-outline" size={10} color={colors.ink3} />

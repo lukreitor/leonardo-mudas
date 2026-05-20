@@ -1,10 +1,13 @@
 import { farmsRepo } from '../repositories/farms';
 import { paymentsRepo } from '../repositories/payments';
+import { farmsService } from './farms';
 
 export const maintenanceService = {
-  async runStartupChecks(): Promise<{ createdMonthly: number; markedOverdue: number }> {
+  async runStartupChecks(): Promise<{ createdMonthly: number; markedOverdue: number; purgedTrash: number }> {
     const now = new Date();
     let createdMonthly = 0;
+
+    const purgedTrash = await farmsService.purgeExpiredTrash();
 
     const farms = await farmsRepo.listActive();
     for (const f of farms) {
@@ -38,6 +41,6 @@ export const maintenanceService = {
 
     const markedOverdue = await paymentsRepo.markPendingAsOverdue(now.toISOString());
 
-    return { createdMonthly, markedOverdue };
+    return { createdMonthly, markedOverdue, purgedTrash };
   },
 };

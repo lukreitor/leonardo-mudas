@@ -159,6 +159,14 @@ export default function FinancialScreen() {
           </Pressable>
         </View>
 
+        <Pressable
+          style={styles.historyLink}
+          onPress={() => router.push('/payments-list?filter=paid' as any)}>
+          <Ionicons name="receipt-outline" size={16} color={colors.broto} />
+          <Text style={styles.historyText}>Ver histórico completo de pagamentos</Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.ink3} />
+        </Pressable>
+
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>Por fazenda</Text>
           <Text style={styles.sectionCount}>{summary.byFarm.length}</Text>
@@ -344,6 +352,16 @@ const styles = StyleSheet.create({
     fontFamily: fonts.displayItalic, fontStyle: 'italic',
     fontSize: 11, color: colors.ink3, marginBottom: 10,
   },
+  historyLink: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginTop: 16,
+    padding: 14,
+    backgroundColor: 'rgba(74,124,89,0.06)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(74,124,89,0.12)',
+  },
+  historyText: { flex: 1, fontFamily: fonts.uiSemibold, fontSize: 13, color: colors.broto },
   list: { gap: 8 },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 14,

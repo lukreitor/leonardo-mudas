@@ -1,14 +1,41 @@
-import { eq, isNull, isNotNull, asc } from 'drizzle-orm';
+import { eq, isNull, isNotNull, asc, and, sql, lt } from 'drizzle-orm';
 import { db } from '../db/client';
 import { farms, type Farm, type NewFarm } from '../db/schema';
 
 export const farmsRepo = {
   async listActive(): Promise<Farm[]> {
-    return db.select().from(farms).where(isNull(farms.deletedAt)).orderBy(asc(farms.id));
+    return db
+      .select()
+      .from(farms)
+      .where(and(isNull(farms.deletedAt), isNull(farms.trashedAt)))
+      .orderBy(asc(farms.id));
   },
 
   async listDeactivated(): Promise<Farm[]> {
-    return db.select().from(farms).where(isNotNull(farms.deletedAt));
+    return db
+      .select()
+      .from(farms)
+      .where(and(isNotNull(farms.deletedAt), isNull(farms.trashedAt)));
+  },
+
+  async listTrashed(): Promise<Farm[]> {
+    return db.select().from(farms).where(isNotNull(farms.trashedAt)).orderBy(asc(farms.trashedAt));
+  },
+
+  async moveToTrash(id: number): Promise<void> {
+    await db.update(farms).set({ trashedAt: new Date().toISOString() }).where(eq(farms.id, id));
+  },
+
+  async restoreFromTrash(id: number): Promise<void> {
+    await db.update(farms).set({ trashedAt: null }).where(eq(farms.id, id));
+  },
+
+  async purgeExpiredTrash(beforeISO: string): Promise<number[]> {
+    const expired = await db
+      .select({ id: farms.id })
+      .from(farms)
+      .where(and(isNotNull(farms.trashedAt), lt(farms.trashedAt, beforeISO)));
+    return expired.map((r) => r.id);
   },
 
   async getById(id: number): Promise<Farm | null> {

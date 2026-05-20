@@ -14,12 +14,12 @@ import { initialsOf } from '@/lib/initials';
 const MONTH_NAMES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
 export default function PaymentsListScreen() {
-  const { filter } = useLocalSearchParams<{ filter: 'pending' | 'overdue' }>();
+  const { filter } = useLocalSearchParams<{ filter: 'pending' | 'overdue' | 'paid' }>();
   const router = useRouter();
   const [rows, setRows] = useState<PaymentWithFarmAndMonth[]>([]);
 
-  const status: 'pending' | 'overdue' = filter === 'overdue' ? 'overdue' : 'pending';
-  const title = status === 'overdue' ? 'Atrasados' : 'Pendentes';
+  const status: 'pending' | 'overdue' | 'paid' = filter === 'overdue' ? 'overdue' : filter === 'paid' ? 'paid' : 'pending';
+  const title = status === 'overdue' ? 'Atrasados' : status === 'paid' ? 'Histórico de pagamentos' : 'Pendentes';
 
   const load = useCallback(async () => {
     const list = await paymentsService.listAllWithFarm(status);
@@ -128,24 +128,34 @@ export default function PaymentsListScreen() {
                         style={[
                           styles.amount,
                           status === 'overdue' && { color: colors.danger },
+                          status === 'paid' && { color: colors.broto },
                         ]}>
                         R$ {r.payment.amount.toFixed(0)}
                       </Text>
-                      <View style={styles.actions}>
-                        <Pressable
-                          onPress={() => handleMarkPaid(r.payment.id)}
-                          style={styles.payBtn}
-                          hitSlop={6}>
-                          <Ionicons name="checkmark" size={12} color="white" />
-                          <Text style={styles.payText}>Pago</Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => handleCancel(r.payment.id)}
-                          style={styles.cancelBtn}
-                          hitSlop={6}>
-                          <Ionicons name="close" size={14} color={colors.ink3} />
-                        </Pressable>
-                      </View>
+                      {status === 'paid' ? (
+                        <View style={[styles.actions, { marginTop: 4 }]}>
+                          <View style={[styles.payBtn, { backgroundColor: 'rgba(74,124,89,0.15)' }]}>
+                            <Ionicons name="checkmark" size={10} color={colors.broto} />
+                            <Text style={[styles.payText, { color: colors.broto }]}>Pago</Text>
+                          </View>
+                        </View>
+                      ) : (
+                        <View style={styles.actions}>
+                          <Pressable
+                            onPress={() => handleMarkPaid(r.payment.id)}
+                            style={styles.payBtn}
+                            hitSlop={6}>
+                            <Ionicons name="checkmark" size={12} color="white" />
+                            <Text style={styles.payText}>Pago</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => handleCancel(r.payment.id)}
+                            style={styles.cancelBtn}
+                            hitSlop={6}>
+                            <Ionicons name="close" size={14} color={colors.ink3} />
+                          </Pressable>
+                        </View>
+                      )}
                     </View>
                   </View>
                 ))}

@@ -35,24 +35,34 @@ export type PaymentWithFarmAndMonth = {
 };
 
 export const paymentsService = {
-  async listAllWithFarm(status: 'pending' | 'overdue'): Promise<PaymentWithFarmAndMonth[]> {
+  async listAllWithFarm(status: 'pending' | 'overdue' | 'paid'): Promise<PaymentWithFarmAndMonth[]> {
     const farms = await farmsRepo.listActive();
     const farmMap = new Map(farms.map((f) => [f.id, f]));
-    const payments = status === 'overdue'
-      ? await paymentsRepo.listOverdue()
-      : await paymentsRepo.listPending();
+    let payments: import('../db/schema').Payment[];
+    if (status === 'overdue') payments = await paymentsRepo.listOverdue();
+    else if (status === 'pending') payments = await paymentsRepo.listPending();
+    else {
+      const all = await Promise.all(farms.map((f) => paymentsRepo.listByFarm(f.id)));
+      payments = all.flat().filter((p) => p.status === 'paid');
+    }
 
     return payments
       .map((p) => {
         const farm = farmMap.get(p.farmId);
         if (!farm) return null;
-        const dateStr = p.dueDate ?? p.createdAt ?? new Date().toISOString();
+        const dateStr = status === 'paid'
+          ? (p.paidDate ?? p.createdAt ?? new Date().toISOString())
+          : (p.dueDate ?? p.createdAt ?? new Date().toISOString());
         const d = new Date(dateStr);
         const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         return { payment: p, farm, ym };
       })
       .filter((x): x is PaymentWithFarmAndMonth => x !== null)
-      .sort((a, b) => (b.payment.dueDate ?? '').localeCompare(a.payment.dueDate ?? ''));
+      .sort((a, b) => {
+        const aRef = status === 'paid' ? a.payment.paidDate : a.payment.dueDate;
+        const bRef = status === 'paid' ? b.payment.paidDate : b.payment.dueDate;
+        return (bRef ?? '').localeCompare(aRef ?? '');
+      });
   },
 
   async togglePaidMonthlyCurrent(farmId: number): Promise<'paid' | 'unpaid'> {

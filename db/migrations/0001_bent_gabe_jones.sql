@@ -1,0 +1,1 @@
+ALTER TABLE `farms` ADD `trashed_at` text;

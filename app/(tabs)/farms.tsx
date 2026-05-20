@@ -14,16 +14,23 @@ import { AmbientBg } from '@/components/AmbientBg';
 import { EmptyIllustration } from '@/components/EmptyIllustration';
 import type { Farm } from '@/db/schema';
 
+type Mode = 'active' | 'deactivated' | 'trashed';
+
 export default function FarmsScreen() {
   const router = useRouter();
   const { colors: themeColors } = useThemeColors();
   const [farms, setFarms] = useState<Farm[]>([]);
-  const [showDeactivated, setShowDeactivated] = useState(false);
+  const [mode, setMode] = useState<Mode>('active');
 
   const load = useCallback(async () => {
-    const list = showDeactivated ? await farmsRepo.listDeactivated() : await farmsRepo.listActive();
+    const list =
+      mode === 'trashed'
+        ? await farmsRepo.listTrashed()
+        : mode === 'deactivated'
+          ? await farmsRepo.listDeactivated()
+          : await farmsRepo.listActive();
     setFarms(list);
-  }, [showDeactivated]);
+  }, [mode]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -35,16 +42,26 @@ export default function FarmsScreen() {
           <View>
             <Text style={styles.title}>Fazendas</Text>
             <Text style={styles.subtitle}>
-              {farms.length} {showDeactivated ? 'desativadas' : 'ativas'}
+              {farms.length} {mode === 'trashed' ? 'na lixeira' : mode === 'deactivated' ? 'desativadas' : 'ativas'}
             </Text>
           </View>
-          <Pressable style={styles.filterBtn} onPress={() => setShowDeactivated((s) => !s)}>
-            <Ionicons
-              name={showDeactivated ? 'eye-off-outline' : 'eye-outline'}
-              size={18}
-              color={colors.mata}
-            />
+          <Pressable
+            style={styles.mapBtn}
+            onPress={() => router.push('/map' as any)}>
+            <Ionicons name="map-outline" size={18} color={colors.mata} />
           </Pressable>
+        </View>
+        <View style={styles.filterRow}>
+          {(['active', 'deactivated', 'trashed'] as Mode[]).map((m) => (
+            <Pressable
+              key={m}
+              onPress={() => setMode(m)}
+              style={[styles.filterPill, mode === m && styles.filterPillActive]}>
+              <Text style={[styles.filterPillText, mode === m && styles.filterPillTextActive]}>
+                {m === 'active' ? 'Ativas' : m === 'deactivated' ? 'Desativadas' : 'Lixeira'}
+              </Text>
+            </Pressable>
+          ))}
         </View>
       </SafeAreaView>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -61,34 +78,45 @@ export default function FarmsScreen() {
             </Text>
           </View>
         ) : (
-          farms.map((farm, i) => (
-            <Pressable
-              key={farm.id}
-              style={styles.row}
-              onPress={() =>
-                showDeactivated
-                  ? farmsRepo.restore(farm.id).then(load)
-                  : router.push(`/farm/${farm.id}` as any)
-              }>
-              <View style={[styles.avatar, { backgroundColor: farm.colorToken ?? farmColors[i % farmColors.length] }]}>
-                <Text style={styles.avatarText}>{initialsOf(farm.name)}</Text>
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.name}>{farm.name}</Text>
-                <Text style={styles.meta}>
-                  {farm.ownerName ?? (farm.sizeHa ? `${farm.sizeHa} ha` : 'sem detalhes')}
-                </Text>
-              </View>
-              {showDeactivated ? (
-                <View style={styles.restoreChip}>
-                  <Ionicons name="refresh" size={14} color={colors.broto} />
-                  <Text style={styles.restoreText}>Reativar</Text>
+          farms.map((farm, i) => {
+            const daysLeft = mode === 'trashed' && farm.trashedAt
+              ? Math.max(0, 30 - Math.floor((Date.now() - new Date(farm.trashedAt).getTime()) / (1000 * 60 * 60 * 24)))
+              : null;
+            return (
+              <Pressable
+                key={farm.id}
+                style={styles.row}
+                onPress={() => {
+                  if (mode === 'deactivated') {
+                    farmsRepo.restore(farm.id).then(load);
+                  } else if (mode === 'trashed') {
+                    farmsRepo.restoreFromTrash(farm.id).then(load);
+                  } else {
+                    router.push(`/farm/${farm.id}` as any);
+                  }
+                }}>
+                <View style={[styles.avatar, { backgroundColor: farm.colorToken ?? farmColors[i % farmColors.length] }]}>
+                  <Text style={styles.avatarText}>{initialsOf(farm.name)}</Text>
                 </View>
-              ) : (
-                <Ionicons name="chevron-forward" size={18} color={colors.ink4} />
-              )}
-            </Pressable>
-          ))
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.name}>{farm.name}</Text>
+                  <Text style={styles.meta}>
+                    {mode === 'trashed' && daysLeft !== null
+                      ? `${daysLeft}d até apagar de vez`
+                      : farm.ownerName ?? (farm.sizeHa ? `${farm.sizeHa} ha` : 'sem detalhes')}
+                  </Text>
+                </View>
+                {mode === 'active' ? (
+                  <Ionicons name="chevron-forward" size={18} color={colors.ink4} />
+                ) : (
+                  <View style={styles.restoreChip}>
+                    <Ionicons name="refresh" size={14} color={colors.broto} />
+                    <Text style={styles.restoreText}>Restaurar</Text>
+                  </View>
+                )}
+              </Pressable>
+            );
+          })
         )}
         <View style={{ height: 140 }} />
       </ScrollView>
@@ -100,8 +128,14 @@ export default function FarmsScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.papel },
   header: {
-    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16,
+    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 12,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+  },
+  mapBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: colors.neblina,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(26,58,46,0.04)',
   },
   title: { fontFamily: fonts.display, fontSize: 28, color: colors.mata, letterSpacing: -0.6 },
   subtitle: { fontFamily: fonts.uiMedium, fontSize: 13, color: colors.ink3, marginTop: 4 },
@@ -111,6 +145,23 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: 'rgba(26,58,46,0.04)',
   },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  filterPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: colors.neblina,
+    borderWidth: 1,
+    borderColor: 'rgba(26,58,46,0.04)',
+  },
+  filterPillActive: { backgroundColor: colors.mata, borderColor: colors.mata },
+  filterPillText: { fontFamily: fonts.uiSemibold, fontSize: 12, color: colors.ink2 },
+  filterPillTextActive: { color: 'white' },
   scroll: { paddingHorizontal: 16, gap: 8 },
   empty: { alignItems: 'center', padding: 40, gap: 8 },
   emptyTitle: { fontFamily: fonts.display, fontSize: 17, color: colors.mata },
