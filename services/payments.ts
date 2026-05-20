@@ -28,7 +28,78 @@ function monthBounds(year: number, month: number) {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
+export type PaymentWithFarmAndMonth = {
+  payment: import('../db/schema').Payment;
+  farm: Farm;
+  ym: string; // 'YYYY-MM' for grouping
+};
+
 export const paymentsService = {
+  async listAllWithFarm(status: 'pending' | 'overdue'): Promise<PaymentWithFarmAndMonth[]> {
+    const farms = await farmsRepo.listActive();
+    const farmMap = new Map(farms.map((f) => [f.id, f]));
+    const payments = status === 'overdue'
+      ? await paymentsRepo.listOverdue()
+      : await paymentsRepo.listPending();
+
+    return payments
+      .map((p) => {
+        const farm = farmMap.get(p.farmId);
+        if (!farm) return null;
+        const dateStr = p.dueDate ?? p.createdAt ?? new Date().toISOString();
+        const d = new Date(dateStr);
+        const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        return { payment: p, farm, ym };
+      })
+      .filter((x): x is PaymentWithFarmAndMonth => x !== null)
+      .sort((a, b) => (b.payment.dueDate ?? '').localeCompare(a.payment.dueDate ?? ''));
+  },
+
+  async togglePaidMonthlyCurrent(farmId: number): Promise<'paid' | 'unpaid'> {
+    const farm = await farmsRepo.getById(farmId);
+    if (!farm) throw new Error('Fazenda não encontrada');
+    if (
+      (farm.paymentType !== 'monthly' && farm.paymentType !== 'mixed') ||
+      !farm.monthlyAmount
+    ) {
+      throw new Error('Fazenda não é de pagamento mensal');
+    }
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    const allFarmPayments = await paymentsRepo.listByFarm(farmId);
+    const thisMonthMonthly = allFarmPayments.filter((p) => {
+      if (p.kind !== 'monthly') return false;
+      const ref = p.paidDate ?? p.dueDate ?? p.createdAt;
+      if (!ref) return false;
+      const d = new Date(ref);
+      return d >= monthStart && d <= monthEnd;
+    });
+
+    const paidExisting = thisMonthMonthly.find((p) => p.status === 'paid');
+    if (paidExisting) {
+      await paymentsRepo.cancel(paidExisting.id);
+      return 'unpaid';
+    }
+
+    const pendingExisting = thisMonthMonthly.find((p) => p.status === 'pending' || p.status === 'overdue');
+    if (pendingExisting) {
+      await paymentsRepo.markPaid(pendingExisting.id);
+      return 'paid';
+    }
+
+    await paymentsRepo.create({
+      farmId,
+      amount: farm.monthlyAmount,
+      kind: 'monthly',
+      status: 'paid',
+      paidDate: now.toISOString(),
+      dueDate: new Date(now.getFullYear(), now.getMonth(), Math.min(farm.monthlyDueDay ?? 5, 28)).toISOString(),
+    });
+    return 'paid';
+  },
   async lastSixMonths(year: number, month: number): Promise<{ year: number; month: number; total: number }[]> {
     const results: { year: number; month: number; total: number }[] = [];
     for (let i = 5; i >= 0; i--) {

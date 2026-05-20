@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 
 import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
@@ -65,20 +66,6 @@ export default function FinancialScreen() {
       </SafeAreaView>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        {summary.overdueTotal > 0 ? (
-          <View style={styles.overdueBanner}>
-            <Ionicons name="warning" size={18} color="#DC3545" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.overdueTitle}>
-                R$ {summary.overdueTotal.toFixed(0)} em atraso
-              </Text>
-              <Text style={styles.overdueSub}>
-                {summary.byFarm.filter((b) => b.status === 'overdue').length} fazendas pendentes
-              </Text>
-            </View>
-          </View>
-        ) : null}
-
         <LinearGradient
           colors={[colors.mata, '#234737', '#2D5A47']}
           start={{ x: 0, y: 0 }}
@@ -117,7 +104,9 @@ export default function FinancialScreen() {
         </LinearGradient>
 
         <View style={styles.grid}>
-          <View style={styles.metric}>
+          <Pressable
+            style={styles.metric}
+            onPress={() => router.push('/payments-list?filter=pending' as any)}>
             <View style={[styles.metricIcon, { backgroundColor: 'rgba(232,160,76,0.15)' }]}>
               <Ionicons name="time-outline" size={14} color={colors.mangaDeep} />
             </View>
@@ -126,7 +115,8 @@ export default function FinancialScreen() {
               <Text style={styles.metricCurrency}>R$ </Text>
               {summary.pendingTotal.toFixed(0)}
             </Text>
-          </View>
+            <Text style={styles.metricTapHint}>ver todos →</Text>
+          </Pressable>
 
           <View style={styles.metric}>
             <View style={[styles.metricIcon, { backgroundColor: 'rgba(122,160,91,0.15)' }]}>
@@ -150,32 +140,56 @@ export default function FinancialScreen() {
             </Text>
           </View>
 
-          <View style={styles.metric}>
-            <View style={[styles.metricIcon, { backgroundColor: 'rgba(26,58,46,0.1)' }]}>
-              <Ionicons name="bar-chart-outline" size={14} color={colors.mata} />
+          <Pressable
+            style={styles.metric}
+            onPress={() => router.push('/payments-list?filter=overdue' as any)}>
+            <View style={[styles.metricIcon, { backgroundColor: 'rgba(220,53,69,0.12)' }]}>
+              <Ionicons name="warning-outline" size={14} color={colors.danger} />
             </View>
             <Text style={styles.metricLabel}>Atrasado</Text>
-            <Text style={styles.metricValue}>
+            <Text style={[styles.metricValue, summary.overdueTotal > 0 && { color: colors.danger }]}>
               <Text style={styles.metricCurrency}>R$ </Text>
               {summary.overdueTotal.toFixed(0)}
             </Text>
-          </View>
+            <Text style={styles.metricTapHint}>ver todos →</Text>
+          </Pressable>
         </View>
 
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>Por fazenda</Text>
           <Text style={styles.sectionCount}>{summary.byFarm.length}</Text>
         </View>
+        <Text style={styles.sectionHint}>
+          Toque numa fazenda mensal para marcar/desmarcar pago
+        </Text>
 
         <View style={styles.list}>
           {summary.byFarm.map((row, i) => {
             const isPending = row.status === 'pending';
             const isOverdue = row.status === 'overdue';
             const isPaid = row.status === 'paid';
+            const isMonthly = row.farm.paymentType === 'monthly' || row.farm.paymentType === 'mixed';
+            const onTap = isMonthly && row.farm.monthlyAmount
+              ? async () => {
+                  try {
+                    const result = await paymentsService.togglePaidMonthlyCurrent(row.farm.id);
+                    Haptics.notificationAsync(
+                      result === 'paid'
+                        ? Haptics.NotificationFeedbackType.Success
+                        : Haptics.NotificationFeedbackType.Warning
+                    );
+                    load();
+                  } catch (err: any) {
+                    Alert.alert('Erro', err?.message ?? 'Não foi possível alternar');
+                  }
+                }
+              : undefined;
             return (
-              <View
+              <Pressable
                 key={row.farm.id}
-                style={[styles.row, (isPending || isOverdue) && styles.rowPending]}>
+                disabled={!onTap}
+                onPress={onTap}
+                style={[styles.row, (isPending || isOverdue) && styles.rowPending, isPaid && isMonthly && styles.rowPaidMonthly]}>
                 <View style={[styles.avatar, { backgroundColor: row.farm.colorToken ?? farmColors[i % farmColors.length] }]}>
                   <Text style={styles.avatarText}>{initialsOf(row.farm.name)}</Text>
                 </View>
@@ -215,7 +229,7 @@ export default function FinancialScreen() {
                     {isPaid ? '● Pago' : isPending ? '● Pendente' : isOverdue ? '● Atrasado' : '— sem cobrança'}
                   </Text>
                 </View>
-              </View>
+              </Pressable>
             );
           })}
         </View>
@@ -315,12 +329,17 @@ const styles = StyleSheet.create({
   },
   metricValue: { fontFamily: fonts.display, fontSize: 22, color: colors.ink1, marginTop: 4, letterSpacing: -0.6 },
   metricCurrency: { fontSize: 11, opacity: 0.55 },
+  metricTapHint: { fontFamily: fonts.uiSemibold, fontSize: 10, color: colors.ink3, marginTop: 4, letterSpacing: 0.2 },
   sectionHead: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline',
     paddingTop: 22, paddingBottom: 12,
   },
   sectionTitle: { fontFamily: fonts.display, fontSize: 19, color: colors.mata, letterSpacing: -0.3 },
   sectionCount: { fontFamily: fonts.uiSemibold, fontSize: 12, color: colors.ink3 },
+  sectionHint: {
+    fontFamily: fonts.displayItalic, fontStyle: 'italic',
+    fontSize: 11, color: colors.ink3, marginBottom: 10,
+  },
   list: { gap: 8 },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
@@ -331,6 +350,10 @@ const styles = StyleSheet.create({
   rowPending: {
     backgroundColor: 'rgba(232,160,76,0.04)',
     borderColor: 'rgba(232,160,76,0.2)',
+  },
+  rowPaidMonthly: {
+    backgroundColor: 'rgba(74,124,89,0.06)',
+    borderColor: 'rgba(74,124,89,0.2)',
   },
   avatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: 'white', fontFamily: fonts.displayBold, fontSize: 16, letterSpacing: -0.3 },
