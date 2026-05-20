@@ -12,8 +12,11 @@ import { UndoToast } from '@/components/UndoToast';
 import { HomeFab } from '@/components/HomeFab';
 import { Confetti } from '@/components/Confetti';
 import { AmbientBg } from '@/components/AmbientBg';
+import { FarmPreviewSheet } from '@/components/FarmPreviewSheet';
+import { EmptyIllustration } from '@/components/EmptyIllustration';
 
 import { visitsService, type FarmWithStatus } from '@/services/visits';
+import { useThemeColors } from '@/theme/hook';
 import { speakWeekSummary } from '@/lib/voice';
 import { paymentsService } from '@/services/payments';
 import { locationService } from '@/services/location';
@@ -33,6 +36,7 @@ type UndoState = {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { colors: themeColors } = useThemeColors();
   const [data, setData] = useState<{
     farms: FarmWithStatus[];
     counts: { visited: number; skipped: number; pending: number; total: number };
@@ -43,6 +47,7 @@ export default function HomeScreen() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [confettiShownForWeek, setConfettiShownForWeek] = useState<string | null>(null);
   const [nearbyFarm, setNearbyFarm] = useState<{ farm: Farm; distanceM: number } | null>(null);
+  const [previewFarm, setPreviewFarm] = useState<FarmWithStatus | null>(null);
 
   const today = useMemo(() => currentWeek(), []);
   const [selectedWeek, setSelectedWeek] = useState<WeekRef>(today);
@@ -154,7 +159,7 @@ export default function HomeScreen() {
   const dateLabel = formatDayLong(new Date());
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: themeColors.papel }]}>
       <AmbientBg variant="soft" />
       <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
         <View style={styles.header}>
@@ -244,20 +249,31 @@ export default function HomeScreen() {
         ) : null}
 
         <View style={styles.list}>
-          {data.farms.map((farm, i) => (
-            <FarmCard
-              key={farm.id}
-              farmId={farm.id}
-              name={farm.name}
-              avatarColor={farm.colorToken ?? farmColors[i % farmColors.length]}
-              initials={initialsOf(farm.name)}
-              status={farm.status}
-              meta={metaFor(farm, isFuture)}
-              onTap={() => onTap(farm)}
-              onLongPress={() => onLongPress(farm)}
-              onOpen={() => router.push(`/farm/${farm.id}` as any)}
-            />
-          ))}
+          {data.farms.length === 0 ? (
+            <View style={styles.emptyHome}>
+              <EmptyIllustration size={120} />
+              <Text style={styles.emptyTitle}>Sem fazendas pra essa semana</Text>
+              <Text style={styles.emptySub}>
+                Cadastre a primeira no botão "+" abaixo.
+              </Text>
+            </View>
+          ) : (
+            data.farms.map((farm, i) => (
+              <FarmCard
+                key={farm.id}
+                farmId={farm.id}
+                name={farm.name}
+                avatarColor={farm.colorToken ?? farmColors[i % farmColors.length]}
+                initials={initialsOf(farm.name)}
+                status={farm.status}
+                meta={metaFor(farm, isFuture)}
+                onTap={() => onTap(farm)}
+                onLongPress={() => onLongPress(farm)}
+                onOpen={() => router.push(`/farm/${farm.id}` as any)}
+                onPreview={() => setPreviewFarm(farm)}
+              />
+            ))
+          )}
         </View>
 
         <View style={{ height: 120 }} />
@@ -268,6 +284,15 @@ export default function HomeScreen() {
       <UndoToast visible={undo.visible} message={undo.message} onUndo={handleUndo} onDismiss={dismissUndo} />
 
       <Confetti visible={showConfetti} onComplete={() => setShowConfetti(false)} />
+
+      <FarmPreviewSheet
+        visible={previewFarm !== null}
+        onDismiss={() => setPreviewFarm(null)}
+        farm={previewFarm}
+        lastVisit={previewFarm?.status === 'visited' ? 'Visitada esta semana' : 'Pendente esta semana'}
+        notesCount={0}
+        paymentSummary={previewFarm?.paymentType && previewFarm.paymentType !== 'none' ? `Cobrança: ${previewFarm.paymentType}` : 'Sem cobrança definida'}
+      />
     </View>
   );
 }
@@ -354,4 +379,11 @@ const styles = StyleSheet.create({
   },
   nearbyText: { flex: 1, fontFamily: fonts.uiSemibold, fontSize: 12, color: colors.mata },
   list: { paddingHorizontal: 16, gap: 8 },
+  emptyHome: {
+    alignItems: 'center',
+    padding: 40,
+    gap: 8,
+  },
+  emptyTitle: { fontFamily: fonts.display, fontSize: 17, color: colors.mata, marginTop: 14 },
+  emptySub: { fontFamily: fonts.ui, fontSize: 13, color: colors.ink3, textAlign: 'center' },
 });

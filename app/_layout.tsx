@@ -25,6 +25,7 @@ import { maintenanceService } from '@/services/maintenance';
 import { notificationsService } from '@/services/notifications';
 import { useAuthStore } from '@/stores/auth';
 import { useSettings } from '@/stores/settings';
+import { useOnboarding } from '@/stores/onboarding';
 import { colors } from '@/theme/colors';
 
 export const unstable_settings = {
@@ -69,14 +70,20 @@ export default function RootLayout() {
 
   useEffect(() => {
     useSettings.getState().hydrate();
+    useOnboarding.getState().hydrate();
   }, []);
 
   useEffect(() => {
     if (!hydrated || !seeded || !fontsLoaded || !migrationsReady) return;
     const inAuth = segments[0] === 'auth';
+    const inOnboarding = segments[0] === 'onboarding';
+    const onb = useOnboarding.getState();
+
     if (!session && !inAuth) {
       router.replace('/auth/login' as any);
-    } else if (session && inAuth) {
+    } else if (session && !onb.done && !inOnboarding) {
+      router.replace('/onboarding' as any);
+    } else if (session && onb.done && (inAuth || inOnboarding)) {
       router.replace('/(tabs)' as any);
     }
   }, [session, hydrated, seeded, fontsLoaded, migrationsReady, segments, router]);
@@ -104,6 +111,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.papel } }}>
         <Stack.Screen name="auth" />
+        <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="farm/[id]/index" options={{ presentation: 'card' }} />
         <Stack.Screen

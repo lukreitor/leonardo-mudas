@@ -16,9 +16,11 @@ import { backupService } from '@/services/backup';
 import { pdfService } from '@/services/pdf';
 import { runDateTests } from '@/lib/date.test';
 import { AmbientBg } from '@/components/AmbientBg';
+import { useThemeColors } from '@/theme/hook';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { colors: themeColors } = useThemeColors();
   const session = useAuthStore((s) => s.session);
   const signOut = useAuthStore((s) => s.signOut);
   const [bioEnabled, setBioEnabled] = useState(false);
@@ -141,7 +143,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: themeColors.papel }]}>
       <AmbientBg variant="soft" />
       <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
         <View style={styles.header}>

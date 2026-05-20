@@ -32,11 +32,12 @@ type Props = {
   onTap: () => void;
   onLongPress: () => void;
   onOpen: () => void;
+  onPreview?: () => void;
 };
 
 const LONG_PRESS_MS = 1500;
 
-export function FarmCard({ name, meta, avatarColor, initials, status, onTap, onLongPress, onOpen }: Props) {
+export function FarmCard({ name, meta, avatarColor, initials, status, onTap, onLongPress, onOpen, onPreview }: Props) {
   const scale = useSharedValue(1);
   const tickProgress = useSharedValue(status === 'visited' ? 1 : 0);
   const opacity = useSharedValue(status === 'skipped' ? 0.55 : 1);
@@ -138,7 +139,12 @@ export function FarmCard({ name, meta, avatarColor, initials, status, onTap, onL
           </View>
         )}
 
-        <Pressable onPress={onOpen} hitSlop={12} style={styles.chevron}>
+        <Pressable
+          onPress={onPreview ?? onOpen}
+          onLongPress={onOpen}
+          delayLongPress={400}
+          hitSlop={12}
+          style={styles.chevron}>
           <Ionicons name="chevron-forward" size={18} color={colors.ink4} />
         </Pressable>
       </Animated.View>

@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { farmsRepo } from '@/repositories/farms';
 import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
+import { useThemeColors } from '@/theme/hook';
 import { initialsOf } from '@/lib/initials';
 import { HomeFab } from '@/components/HomeFab';
 import { AmbientBg } from '@/components/AmbientBg';
@@ -15,6 +16,7 @@ import type { Farm } from '@/db/schema';
 
 export default function FarmsScreen() {
   const router = useRouter();
+  const { colors: themeColors } = useThemeColors();
   const [farms, setFarms] = useState<Farm[]>([]);
   const [showDeactivated, setShowDeactivated] = useState(false);
 
@@ -26,7 +28,7 @@ export default function FarmsScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: themeColors.papel }]}>
       <AmbientBg variant="soft" />
       <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
         <View style={styles.header}>

@@ -12,11 +12,13 @@ import { paymentsService, formatStructure, type MonthlySummary } from '@/service
 import { initialsOf } from '@/lib/initials';
 import { Sparkline } from '@/components/Sparkline';
 import { AmbientBg } from '@/components/AmbientBg';
+import { useThemeColors } from '@/theme/hook';
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
 export default function FinancialScreen() {
   const router = useRouter();
+  const { colors: themeColors } = useThemeColors();
   const today = new Date();
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear] = useState(today.getFullYear());
@@ -43,7 +45,7 @@ export default function FinancialScreen() {
   if (!summary) return <View style={{ flex: 1, backgroundColor: colors.papel }} />;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: themeColors.papel }]}>
       <AmbientBg variant="soft" />
       <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
         <View style={styles.header}>
