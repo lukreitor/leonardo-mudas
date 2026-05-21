@@ -4,7 +4,7 @@ import { eq, isNull } from 'drizzle-orm';
 import { SEED_FARMS, SEED_CONFIG } from '../db/seeds/farms';
 
 const SEED_KEY = 'seeded';
-const PAYMENT_SEED_KEY = 'seed_payment_v1';
+const PAYMENT_SEED_KEY = 'seed_payment_v2';
 
 export async function runSeedIfNeeded(): Promise<void> {
   const existing = await db
@@ -13,6 +13,7 @@ export async function runSeedIfNeeded(): Promise<void> {
       name: farms.name,
       paymentType: farms.paymentType,
       monthlyAmount: farms.monthlyAmount,
+      monthlyDueDay: farms.monthlyDueDay,
       visitAmount: farms.visitAmount,
       commissionPct: farms.commissionPct,
     })
@@ -37,24 +38,30 @@ export async function runSeedIfNeeded(): Promise<void> {
       const existingFarm = existingByName.get(seed.name.toLowerCase().trim());
       if (!existingFarm) continue;
 
-      const hasCustomization =
-        (existingFarm.paymentType && existingFarm.paymentType !== 'none') ||
-        existingFarm.monthlyAmount != null ||
-        existingFarm.visitAmount != null ||
-        existingFarm.commissionPct != null;
+      const updates: Record<string, any> = {};
 
-      if (hasCustomization) continue;
+      if (!existingFarm.paymentType || existingFarm.paymentType === 'none') {
+        if (seed.paymentType !== 'none') {
+          updates.paymentType = seed.paymentType;
+        }
+      }
 
-      await db
-        .update(farms)
-        .set({
-          paymentType: seed.paymentType,
-          monthlyAmount: seed.monthlyAmount ?? null,
-          monthlyDueDay: seed.monthlyDueDay ?? null,
-          visitAmount: seed.visitAmount ?? null,
-          commissionPct: seed.commissionPct ?? null,
-        })
-        .where(eq(farms.id, existingFarm.id));
+      if (seed.monthlyAmount != null && existingFarm.monthlyAmount == null) {
+        updates.monthlyAmount = seed.monthlyAmount;
+      }
+      if (seed.monthlyDueDay != null && existingFarm.monthlyDueDay == null) {
+        updates.monthlyDueDay = seed.monthlyDueDay;
+      }
+      if (seed.visitAmount != null && existingFarm.visitAmount == null) {
+        updates.visitAmount = seed.visitAmount;
+      }
+      if (seed.commissionPct != null && existingFarm.commissionPct == null) {
+        updates.commissionPct = seed.commissionPct;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await db.update(farms).set(updates).where(eq(farms.id, existingFarm.id));
+      }
     }
 
     await db
