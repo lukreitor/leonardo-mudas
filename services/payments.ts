@@ -152,7 +152,7 @@ export const paymentsService = {
             ? ('paid' as const)
             : ('none' as const);
 
-      const { nextDueDate, nextDueLabel } = computeNextDue(farm);
+      const { nextDueDate, nextDueLabel } = computeNextDue(farm, status);
       return { farm, receivedThisMonth, status, nextDueDate, nextDueLabel };
     });
 
@@ -182,7 +182,10 @@ export const paymentsService = {
   },
 };
 
-function computeNextDue(farm: Farm): { nextDueDate: string | null; nextDueLabel: string | null } {
+function computeNextDue(
+  farm: Farm,
+  currentStatus: 'paid' | 'pending' | 'overdue' | 'none'
+): { nextDueDate: string | null; nextDueLabel: string | null } {
   if ((farm.paymentType !== 'monthly' && farm.paymentType !== 'mixed') || !farm.monthlyDueDay) {
     if (farm.paymentType === 'visit' || farm.paymentType === 'commission') {
       return { nextDueDate: null, nextDueLabel: 'sob demanda' };
@@ -191,19 +194,33 @@ function computeNextDue(farm: Farm): { nextDueDate: string | null; nextDueLabel:
   }
   const now = new Date();
   const day = Math.min(Math.max(farm.monthlyDueDay, 1), 28);
-  let nextDue = new Date(now.getFullYear(), now.getMonth(), day);
-  if (nextDue < now) {
-    nextDue = new Date(now.getFullYear(), now.getMonth() + 1, day);
+  const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const dayMs = 1000 * 60 * 60 * 24;
+
+  if (currentStatus === 'paid') {
+    const nextDue = new Date(now.getFullYear(), now.getMonth() + 1, day);
+    const diffDays = Math.round((nextDue.getTime() - todayMs) / dayMs);
+    return { nextDueDate: nextDue.toISOString(), nextDueLabel: `próx: vence em ${diffDays}d` };
   }
-  const diffDays = Math.ceil((nextDue.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+  const thisMonthDue = new Date(now.getFullYear(), now.getMonth(), day);
+  const thisMonthDueMs = thisMonthDue.getTime();
+
+  if (thisMonthDueMs < todayMs) {
+    const overdueDays = Math.round((todayMs - thisMonthDueMs) / dayMs);
+    return {
+      nextDueDate: thisMonthDue.toISOString(),
+      nextDueLabel: overdueDays === 1 ? '1d atrasado' : `${overdueDays}d atrasado`,
+    };
+  }
+
+  const diffDays = Math.round((thisMonthDueMs - todayMs) / dayMs);
   const label = diffDays === 0
     ? 'vence hoje'
     : diffDays === 1
       ? 'vence amanhã'
-      : diffDays < 0
-        ? `${Math.abs(diffDays)}d atrasado`
-        : `vence em ${diffDays}d`;
-  return { nextDueDate: nextDue.toISOString(), nextDueLabel: label };
+      : `vence em ${diffDays}d`;
+  return { nextDueDate: thisMonthDue.toISOString(), nextDueLabel: label };
 }
 
 export function formatStructure(farm: Farm): string {

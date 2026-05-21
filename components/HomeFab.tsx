@@ -3,12 +3,14 @@ import { StyleSheet, Pressable } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '@/theme/colors';
 
 type Props = { onPress: () => void };
 
 export function HomeFab({ onPress }: Props) {
+  const insets = useSafeAreaInsets();
   const scale = useSharedValue(1);
 
   useEffect(() => {
@@ -21,8 +23,11 @@ export function HomeFab({ onPress }: Props) {
 
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
+  const tabHeight = 56 + Math.max(insets.bottom, 12);
+  const fabBottom = tabHeight + 16;
+
   return (
-    <Pressable onPress={onPress} style={styles.touch}>
+    <Pressable onPress={onPress} style={[styles.touch, { bottom: fabBottom }]}>
       <Animated.View style={[styles.fab, style]}>
         <LinearGradient
           colors={[colors.manga, colors.mangaDeep]}
@@ -37,7 +42,7 @@ export function HomeFab({ onPress }: Props) {
 }
 
 const styles = StyleSheet.create({
-  touch: { position: 'absolute', bottom: 96, right: 22, zIndex: 30 },
+  touch: { position: 'absolute', right: 22, zIndex: 30 },
   fab: {
     width: 60, height: 60, borderRadius: 30,
     alignItems: 'center', justifyContent: 'center',

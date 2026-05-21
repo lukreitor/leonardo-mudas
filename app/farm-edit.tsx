@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 
 import { farmsRepo } from '@/repositories/farms';
 import { locationService } from '@/services/location';
+import { maintenanceService } from '@/services/maintenance';
 import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import type { Farm } from '@/db/schema';
@@ -113,6 +114,8 @@ export default function FarmEditScreen() {
       } else {
         await farmsRepo.create(data as any);
       }
+      // Garante que payments pending/overdue sejam criados/atualizados imediatamente
+      await maintenanceService.runStartupChecks();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (err: any) {

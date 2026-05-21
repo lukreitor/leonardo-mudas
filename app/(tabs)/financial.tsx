@@ -13,12 +13,16 @@ import { initialsOf } from '@/lib/initials';
 import { Sparkline } from '@/components/Sparkline';
 import { AmbientBg } from '@/components/AmbientBg';
 import { useThemeColors } from '@/theme/hook';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
 export default function FinancialScreen() {
   const router = useRouter();
   const { colors: themeColors } = useThemeColors();
+  const insets = useSafeAreaInsets();
+  const tabHeight = 56 + Math.max(insets.bottom, 12);
+  const fabBottom = tabHeight + 16;
   const today = new Date();
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear] = useState(today.getFullYear());
@@ -249,7 +253,7 @@ export default function FinancialScreen() {
         <View style={{ height: 140 }} />
       </ScrollView>
 
-      <Pressable style={styles.fab} onPress={() => router.push('/register-payment' as any)}>
+      <Pressable style={[styles.fab, { bottom: fabBottom }]} onPress={() => router.push('/register-payment' as any)}>
         <View style={styles.fabIcon}>
           <Ionicons name="add" size={14} color="white" />
         </View>
@@ -397,7 +401,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 100, right: 22,
+    right: 22,
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 18, paddingVertical: 14,
     borderRadius: 999,
