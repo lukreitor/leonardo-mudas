@@ -1,7 +1,6 @@
 import { Modal, View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect } from 'react';
 
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
@@ -14,20 +13,24 @@ type Props = {
   onDelete?: () => void;
 };
 
-export function MediaViewer({ visible, onDismiss, type, uri, onDelete }: Props) {
-  const player = useVideoPlayer(type === 'video' && uri ? uri : null, (p) => {
+function VideoContent({ uri }: { uri: string }) {
+  const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
+    p.play();
   });
+  return (
+    <VideoView
+      style={styles.media}
+      player={player}
+      allowsFullscreen
+      allowsPictureInPicture
+      contentFit="contain"
+      nativeControls
+    />
+  );
+}
 
-  useEffect(() => {
-    if (visible && type === 'video' && player) {
-      player.play();
-    }
-    return () => {
-      if (player) player.pause();
-    };
-  }, [visible, type, player]);
-
+export function MediaViewer({ visible, onDismiss, type, uri, onDelete }: Props) {
   if (!visible || !uri || !type) return null;
 
   return (
@@ -50,14 +53,7 @@ export function MediaViewer({ visible, onDismiss, type, uri, onDelete }: Props) 
         {type === 'photo' ? (
           <Image source={{ uri }} style={styles.media} resizeMode="contain" />
         ) : (
-          <VideoView
-            style={styles.media}
-            player={player}
-            allowsFullscreen
-            allowsPictureInPicture
-            contentFit="contain"
-            nativeControls
-          />
+          <VideoContent uri={uri} />
         )}
       </View>
     </Modal>
