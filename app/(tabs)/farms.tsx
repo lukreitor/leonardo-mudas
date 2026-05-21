@@ -69,12 +69,18 @@ export default function FarmsScreen() {
           <View style={styles.empty}>
             <EmptyIllustration size={120} />
             <Text style={styles.emptyTitle}>
-              {showDeactivated ? 'Nenhuma fazenda desativada' : 'Nenhuma fazenda ativa'}
+              {mode === 'trashed'
+                ? 'Lixeira vazia'
+                : mode === 'deactivated'
+                  ? 'Nenhuma fazenda desativada'
+                  : 'Nenhuma fazenda ativa'}
             </Text>
             <Text style={styles.emptySub}>
-              {showDeactivated
-                ? 'Quando você desativar uma fazenda, ela aparece aqui.'
-                : 'Toque no botão "+" para adicionar.'}
+              {mode === 'trashed'
+                ? 'Fazendas excluídas aparecem aqui por 30 dias antes de serem apagadas.'
+                : mode === 'deactivated'
+                  ? 'Quando você desativar uma fazenda, ela aparece aqui.'
+                  : 'Toque no botão "+" para adicionar.'}
             </Text>
           </View>
         ) : (
