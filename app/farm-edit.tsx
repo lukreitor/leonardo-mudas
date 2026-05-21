@@ -88,6 +88,18 @@ export default function FarmEditScreen() {
       Alert.alert('Falta o nome', 'Nome da fazenda é obrigatório.');
       return;
     }
+    if ((paymentType === 'monthly' || paymentType === 'mixed') && !monthlyAmount.trim()) {
+      Alert.alert('Valor mensal', 'Você escolheu cobrança mensal mas não preencheu o valor.');
+      return;
+    }
+    if ((paymentType === 'visit' || paymentType === 'mixed') && !visitAmount.trim()) {
+      Alert.alert('Valor por visita', 'Você escolheu cobrança por visita mas não preencheu o valor.');
+      return;
+    }
+    if ((paymentType === 'commission' || paymentType === 'mixed') && !commissionPct.trim()) {
+      Alert.alert('% comissão', 'Você escolheu comissão mas não preencheu a porcentagem.');
+      return;
+    }
     setSubmitting(true);
     try {
       const data: Partial<Farm> = {

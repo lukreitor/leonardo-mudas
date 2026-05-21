@@ -137,17 +137,6 @@ export default function FinancialScreen() {
             </Text>
           </View>
 
-          <View style={styles.metric}>
-            <View style={[styles.metricIcon, { backgroundColor: 'rgba(74,124,89,0.12)' }]}>
-              <Ionicons name="calendar-outline" size={14} color={colors.broto} />
-            </View>
-            <Text style={styles.metricLabel}>Próx. mensal</Text>
-            <Text style={styles.metricValue}>
-              <Text style={styles.metricCurrency}>R$ </Text>
-              {summary.upcomingMonthly.toFixed(0)}
-            </Text>
-          </View>
-
           <Pressable
             style={styles.metric}
             onPress={() => router.push('/payments-list?filter=overdue' as any)}>
@@ -161,7 +150,24 @@ export default function FinancialScreen() {
             </Text>
             <Text style={styles.metricTapHint}>ver todos →</Text>
           </Pressable>
+
+          <View style={styles.metric}>
+            <View style={[styles.metricIcon, { backgroundColor: 'rgba(26,58,46,0.1)' }]}>
+              <Ionicons name="bar-chart-outline" size={14} color={colors.mata} />
+            </View>
+            <Text style={styles.metricLabel}>Total {year}</Text>
+            <Text style={styles.metricValue}>
+              <Text style={styles.metricCurrency}>R$ </Text>
+              {summary.yearTotal.toFixed(0)}
+            </Text>
+            <Text style={styles.metricSub}>jan a dez</Text>
+          </View>
         </View>
+
+        <Text style={styles.metricLegend}>
+          <Text style={{ color: colors.mangaDeep }}>● Pendente</Text> = a vencer este mês ·{' '}
+          <Text style={{ color: colors.danger }}>● Atrasado</Text> = passou da data
+        </Text>
 
         <Pressable
           style={styles.historyLink}
@@ -346,6 +352,14 @@ const styles = StyleSheet.create({
   metricValue: { fontFamily: fonts.display, fontSize: 22, color: colors.ink1, marginTop: 4, letterSpacing: -0.6 },
   metricCurrency: { fontSize: 11, opacity: 0.55 },
   metricTapHint: { fontFamily: fonts.uiSemibold, fontSize: 10, color: colors.ink3, marginTop: 4, letterSpacing: 0.2 },
+  metricSub: { fontFamily: fonts.uiSemibold, fontSize: 10, color: colors.ink3, marginTop: 4, letterSpacing: 0.2 },
+  metricLegend: {
+    fontFamily: fonts.uiMedium,
+    fontSize: 11,
+    color: colors.ink3,
+    marginTop: 12,
+    marginHorizontal: 4,
+  },
   sectionHead: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline',
     paddingTop: 22, paddingBottom: 12,

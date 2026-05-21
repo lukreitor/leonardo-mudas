@@ -20,25 +20,27 @@ export function RecordWaveform({ active }: Props) {
 
 function Bar({ index, active }: { index: number; active: boolean }) {
   const baseHeight = 0.3 + Math.abs(Math.sin(index * 0.7)) * 0.5 + Math.abs(Math.sin(index * 1.3)) * 0.3;
-  const scale = useSharedValue(0.4);
+  const scale = useSharedValue(0.3);
+  const opacity = useSharedValue(0.5);
 
   useEffect(() => {
-    if (active) {
-      scale.value = withDelay(
-        index * 50,
-        withRepeat(
-          withTiming(1, { duration: 700 + (index % 4) * 100, easing: Easing.inOut(Easing.sin) }),
-          -1,
-          true
-        )
-      );
-    } else {
-      scale.value = withTiming(0.4, { duration: 400 });
-    }
-  }, [active, index, scale]);
+    const dur = active ? 700 + (index % 4) * 100 : 1400 + (index % 5) * 150;
+    const peak = active ? 1 : 0.55;
+    const minScale = active ? 0.3 : 0.2;
+    scale.value = withDelay(
+      index * (active ? 50 : 80),
+      withRepeat(
+        withTiming(peak, { duration: dur, easing: Easing.inOut(Easing.sin) }),
+        -1,
+        true
+      )
+    );
+    opacity.value = withTiming(active ? 0.9 : 0.45, { duration: 300 });
+  }, [active, index, scale, opacity]);
 
   const style = useAnimatedStyle(() => ({
-    transform: [{ scaleY: scale.value * baseHeight + 0.1 }],
+    transform: [{ scaleY: Math.max(0.2, scale.value * baseHeight) }],
+    opacity: opacity.value,
   }));
 
   return <Animated.View style={[styles.bar, style]} />;
@@ -58,6 +60,5 @@ const styles = StyleSheet.create({
     height: 60,
     backgroundColor: colors.manga,
     borderRadius: 2,
-    opacity: 0.85,
   },
 });

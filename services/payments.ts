@@ -11,6 +11,7 @@ export type MonthlySummary = {
   overdueTotal: number;
   commissionTotal: number;
   upcomingMonthly: number;
+  yearTotal: number;
   paidCount: number;
   commissionsCount: number;
   byFarm: {
@@ -134,6 +135,12 @@ export const paymentsService = {
     const commissionTotal = paidThisMonth.filter((p) => p.kind === 'commission').reduce((s, p) => s + p.amount, 0);
     const upcomingMonthly = farms.reduce((s, f) => s + (f.monthlyAmount ?? 0), 0);
 
+    let yearTotal = 0;
+    for (let m = 1; m <= 12; m++) {
+      const paid = await paymentsRepo.listPaidInMonth(year, m);
+      yearTotal += paid.reduce((s, p) => s + p.amount, 0);
+    }
+
     const byFarmMap = new Map<number, number>();
     for (const p of paidThisMonth) {
       byFarmMap.set(p.farmId, (byFarmMap.get(p.farmId) ?? 0) + p.amount);
@@ -162,6 +169,7 @@ export const paymentsService = {
       overdueTotal,
       commissionTotal,
       upcomingMonthly,
+      yearTotal,
       paidCount: paidThisMonth.length,
       commissionsCount: paidThisMonth.filter((p) => p.kind === 'commission').length,
       byFarm,
@@ -226,13 +234,15 @@ function computeNextDue(
 export function formatStructure(farm: Farm): string {
   const parts: string[] = [];
   if (farm.paymentType === 'visit' || farm.paymentType === 'mixed') {
-    if (farm.visitAmount) parts.push(`R$ ${farm.visitAmount}/visita`);
+    parts.push(farm.visitAmount ? `R$ ${farm.visitAmount}/visita` : 'visita (sem valor)');
   }
   if (farm.paymentType === 'monthly' || farm.paymentType === 'mixed') {
-    if (farm.monthlyAmount) parts.push(`R$ ${farm.monthlyAmount}/mês`);
+    parts.push(farm.monthlyAmount ? `R$ ${farm.monthlyAmount}/mês` : 'mensal (sem valor)');
   }
   if (farm.paymentType === 'commission' || farm.paymentType === 'mixed') {
-    if (farm.commissionPct) parts.push(`${farm.commissionPct}% comissão`);
+    parts.push(farm.commissionPct ? `${farm.commissionPct}% comissão` : 'comissão (sem %)');
   }
-  return parts.length > 0 ? parts.join(' · ') : 'Sem cobrança definida';
+  if (parts.length > 0) return parts.join(' · ');
+  if (farm.paymentType === 'none') return 'Sem cobrança definida';
+  return 'Cobrança incompleta';
 }

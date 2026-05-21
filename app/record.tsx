@@ -69,22 +69,24 @@ export default function RecordScreen() {
   }, [farmIdNum]);
 
   useEffect(() => {
+    // Botão sempre pulsa (mock: pulse-record infinite). Mais intenso quando gravando.
+    const peak = isRecording ? 1.12 : 1.05;
+    const dur = isRecording ? 1000 : 1800;
+    recPulse.value = withRepeat(
+      withSequence(
+        withTiming(peak, { duration: dur, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1, { duration: dur, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      false
+    );
     if (isRecording) {
-      recPulse.value = withRepeat(
-        withSequence(
-          withTiming(1.12, { duration: 1000, easing: Easing.inOut(Easing.sin) }),
-          withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.sin) })
-        ),
-        -1,
-        false
-      );
       recDot.value = withRepeat(
         withSequence(withTiming(1, { duration: 600 }), withTiming(0.3, { duration: 600 })),
         -1,
         false
       );
     } else {
-      recPulse.value = withTiming(1);
       recDot.value = withTiming(1);
     }
   }, [isRecording, recPulse, recDot]);
