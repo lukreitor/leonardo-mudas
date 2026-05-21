@@ -5,6 +5,14 @@ import JSZip from 'jszip';
 const SQLITE_PATH = `${FileSystem.documentDirectory}SQLite/leonardo-mudas.db`;
 const MEDIA_DIR = `${FileSystem.documentDirectory}media/`;
 const BACKUP_DIR = `${FileSystem.documentDirectory}backups/`;
+const AUTO_PREFIX = 'auto-monthly-';
+
+export type AutoBackupInfo = {
+  path: string;
+  ym: string;
+  createdAt: string;
+  sizeBytes: number;
+};
 
 export const backupService = {
   async ensureBackupDir(): Promise<void> {
@@ -24,7 +32,7 @@ export const backupService = {
     return target;
   },
 
-  async exportFullBackup(): Promise<void> {
+  async buildBackupZipBase64(): Promise<{ base64: string; mediaCount: number }> {
     const dbInfo = await FileSystem.getInfoAsync(SQLITE_PATH);
     if (!dbInfo.exists) throw new Error('Banco não encontrado');
 
@@ -49,7 +57,7 @@ export const backupService = {
             mediaFolder.file(fname, b64, { base64: true });
             mediaCount++;
           } catch {
-            // skip individual file errors
+            // skip
           }
         }
       }
@@ -64,10 +72,15 @@ export const backupService = {
     };
     zip.file('manifest.json', JSON.stringify(manifest, null, 2));
 
-    const zipBase64 = await zip.generateAsync({ type: 'base64', compression: 'DEFLATE' });
+    const base64 = await zip.generateAsync({ type: 'base64', compression: 'DEFLATE' });
+    return { base64, mediaCount };
+  },
+
+  async exportFullBackup(): Promise<void> {
+    const { base64, mediaCount } = await this.buildBackupZipBase64();
     const stamp = new Date().toISOString().slice(0, 10);
     const zipPath = `${FileSystem.cacheDirectory}leonardo-mudas-backup-${stamp}.zip`;
-    await FileSystem.writeAsStringAsync(zipPath, zipBase64, {
+    await FileSystem.writeAsStringAsync(zipPath, base64, {
       encoding: FileSystem.EncodingType.Base64,
     });
 
@@ -78,6 +91,60 @@ export const backupService = {
         dialogTitle: `Backup Leonardo Consultoria (${mediaCount} mídias)`,
       });
     }
+  },
+
+  async runMonthlyAutoBackupIfNeeded(): Promise<{ created?: AutoBackupInfo; replacedYm?: string }> {
+    await this.ensureBackupDir();
+    const now = new Date();
+    const currentYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const targetPath = `${BACKUP_DIR}${AUTO_PREFIX}${currentYm}.zip`;
+    const targetInfo = await FileSystem.getInfoAsync(targetPath);
+    if (targetInfo.exists) return {};
+
+    const { base64 } = await this.buildBackupZipBase64();
+    await FileSystem.writeAsStringAsync(targetPath, base64, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    let replacedYm: string | undefined;
+    const files = await FileSystem.readDirectoryAsync(BACKUP_DIR);
+    for (const f of files) {
+      if (f.startsWith(AUTO_PREFIX) && f !== `${AUTO_PREFIX}${currentYm}.zip`) {
+        try {
+          await FileSystem.deleteAsync(`${BACKUP_DIR}${f}`, { idempotent: true });
+          replacedYm = f.replace(AUTO_PREFIX, '').replace('.zip', '');
+        } catch {
+          // skip
+        }
+      }
+    }
+
+    const finalInfo = await FileSystem.getInfoAsync(targetPath);
+    return {
+      created: {
+        path: targetPath,
+        ym: currentYm,
+        createdAt: new Date().toISOString(),
+        sizeBytes: (finalInfo as any).size ?? 0,
+      },
+      replacedYm,
+    };
+  },
+
+  async latestAutoMonthly(): Promise<AutoBackupInfo | null> {
+    await this.ensureBackupDir();
+    const files = await FileSystem.readDirectoryAsync(BACKUP_DIR);
+    const auto = files.filter((f) => f.startsWith(AUTO_PREFIX) && f.endsWith('.zip')).sort();
+    if (auto.length === 0) return null;
+    const latest = auto[auto.length - 1];
+    const path = `${BACKUP_DIR}${latest}`;
+    const info = await FileSystem.getInfoAsync(path);
+    return {
+      path,
+      ym: latest.replace(AUTO_PREFIX, '').replace('.zip', ''),
+      createdAt: new Date(((info as any).modificationTime ?? 0) * 1000).toISOString(),
+      sizeBytes: (info as any).size ?? 0,
+    };
   },
 
   async restoreFromBackup(sourceUri: string): Promise<void> {

@@ -12,11 +12,19 @@ import { useAuthStore } from '@/stores/auth';
 import { useSettings } from '@/stores/settings';
 import { authService } from '@/services/auth';
 import { exportService } from '@/services/export';
-import { backupService } from '@/services/backup';
+import { backupService, type AutoBackupInfo } from '@/services/backup';
 import { pdfService } from '@/services/pdf';
 import { runDateTests } from '@/lib/date.test';
 import { AmbientBg } from '@/components/AmbientBg';
 import { useThemeColors } from '@/theme/hook';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+function formatBytes(b: number): string {
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(0)} KB`;
+  return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -27,6 +35,7 @@ export default function ProfileScreen() {
   const [bioAvailable, setBioAvailable] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [backupping, setBackupping] = useState(false);
+  const [autoBackup, setAutoBackup] = useState<AutoBackupInfo | null>(null);
   const darkMode = useSettings((s) => s.darkMode);
   const soundEnabled = useSettings((s) => s.soundEnabled);
   const setDarkMode = useSettings((s) => s.setDarkMode);
@@ -38,6 +47,8 @@ export default function ProfileScreen() {
       const enabled = await authService.getBiometricEnabled();
       setBioAvailable(avail);
       setBioEnabled(enabled);
+      const last = await backupService.latestAutoMonthly();
+      setAutoBackup(last);
     })();
   }, []);
 
@@ -118,6 +129,61 @@ export default function ProfileScreen() {
       ]
     );
   }, []);
+
+  const refreshAutoBackup = useCallback(async () => {
+    const last = await backupService.latestAutoMonthly();
+    setAutoBackup(last);
+  }, []);
+
+  const handleAutoBackup = useCallback(() => {
+    const buttons: any[] = [];
+    if (autoBackup) {
+      buttons.push({
+        text: 'Restaurar este backup',
+        onPress: () =>
+          Alert.alert(
+            'Confirmar restauração',
+            'Substitui os dados atuais. Um snapshot de segurança será salvo antes.',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              {
+                text: 'Restaurar',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await backupService.restoreFromBackup(autoBackup.path);
+                    Alert.alert('✓ Restaurado', 'Feche e reabra o app pra ver os dados restaurados.');
+                  } catch (err: any) {
+                    Alert.alert('Erro', err?.message ?? 'Falha ao restaurar');
+                  }
+                },
+              },
+            ]
+          ),
+      });
+    }
+    buttons.push({
+      text: 'Fazer backup agora',
+      onPress: async () => {
+        try {
+          await backupService.runMonthlyAutoBackupIfNeeded();
+          await refreshAutoBackup();
+          Alert.alert('✓ Pronto', 'Backup mensal atualizado.');
+        } catch (err: any) {
+          Alert.alert('Erro', err?.message ?? 'Falha ao gerar backup');
+        }
+      },
+    });
+    buttons.push({ text: 'Cancelar', style: 'cancel' });
+
+    Alert.alert(
+      'Backup automático mensal',
+      autoBackup
+        ? `Último: ${format(parseISO(autoBackup.createdAt), "d 'de' MMMM 'de' yyyy", { locale: ptBR })} · ${formatBytes(autoBackup.sizeBytes)}`
+        : 'Nenhum backup automático ainda. Vai criar agora.',
+      buttons
+    );
+  }, [autoBackup, refreshAutoBackup]);
 
   const handlePdf = useCallback(async () => {
     try {
@@ -216,6 +282,21 @@ export default function ProfileScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.rowLabel}>Restaurar de backup</Text>
               <Text style={styles.rowSub}>Importar .sqlite previamente salvo</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.ink4} />
+          </Pressable>
+
+          <Pressable style={styles.row} onPress={handleAutoBackup}>
+            <View style={[styles.rowIcon, { backgroundColor: 'rgba(74,124,89,0.12)' }]}>
+              <Ionicons name="time-outline" size={18} color={colors.broto} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>Backup automático mensal</Text>
+              <Text style={styles.rowSub}>
+                {autoBackup
+                  ? `Último: ${format(parseISO(autoBackup.createdAt), "d 'de' MMM", { locale: ptBR })} · ${formatBytes(autoBackup.sizeBytes)}`
+                  : 'Nenhum ainda — toque pra criar'}
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.ink4} />
           </Pressable>
