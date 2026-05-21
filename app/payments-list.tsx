@@ -1,9 +1,12 @@
 import { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 import { paymentsService, type PaymentWithFarmAndMonth } from '@/services/payments';
 import { paymentsRepo } from '@/repositories/payments';
@@ -21,6 +24,9 @@ export default function PaymentsListScreen() {
   const status: 'pending' | 'overdue' | 'paid' = filter === 'overdue' ? 'overdue' : filter === 'paid' ? 'paid' : 'pending';
   const title = status === 'overdue' ? 'Atrasados' : status === 'paid' ? 'Histórico de pagamentos' : 'Pendentes';
 
+  const [pickerOpenFor, setPickerOpenFor] = useState<number | null>(null);
+  const [pickerDate, setPickerDate] = useState<Date>(new Date());
+
   const load = useCallback(async () => {
     const list = await paymentsService.listAllWithFarm(status);
     setRows(list);
@@ -28,13 +34,39 @@ export default function PaymentsListScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const handleMarkPaid = useCallback(
-    async (paymentId: number) => {
+  const doMarkPaid = useCallback(
+    async (paymentId: number, when: Date) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await paymentsRepo.markPaid(paymentId);
+      await paymentsRepo.markPaid(paymentId, when);
       load();
     },
     [load]
+  );
+
+  const handleMarkPaid = useCallback(
+    (row: PaymentWithFarmAndMonth) => {
+      const buttons: any[] = [{ text: 'Hoje', onPress: () => doMarkPaid(row.payment.id, new Date()) }];
+      if (row.payment.dueDate) {
+        const dueDate = parseISO(row.payment.dueDate);
+        const label = `No vencimento (${format(dueDate, 'd/MM')})`;
+        buttons.push({ text: label, onPress: () => doMarkPaid(row.payment.id, dueDate) });
+      }
+      buttons.push({
+        text: 'Outra data…',
+        onPress: () => {
+          setPickerDate(row.payment.dueDate ? parseISO(row.payment.dueDate) : new Date());
+          setPickerOpenFor(row.payment.id);
+        },
+      });
+      buttons.push({ text: 'Cancelar', style: 'cancel' });
+
+      Alert.alert(
+        `Marcar ${row.farm.name} como pago`,
+        'Quando o pagamento foi recebido?',
+        buttons
+      );
+    },
+    [doMarkPaid]
   );
 
   const handleCancel = useCallback(
@@ -142,7 +174,7 @@ export default function PaymentsListScreen() {
                       ) : (
                         <View style={styles.actions}>
                           <Pressable
-                            onPress={() => handleMarkPaid(r.payment.id)}
+                            onPress={() => handleMarkPaid(r)}
                             style={styles.payBtn}
                             hitSlop={6}>
                             <Ionicons name="checkmark" size={12} color="white" />
@@ -165,6 +197,32 @@ export default function PaymentsListScreen() {
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {pickerOpenFor !== null ? (
+        <DateTimePicker
+          value={pickerDate}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          maximumDate={new Date()}
+          onChange={(event, selected) => {
+            if (Platform.OS === 'android') {
+              const id = pickerOpenFor;
+              setPickerOpenFor(null);
+              if (event.type === 'set' && selected && id) {
+                doMarkPaid(id, selected);
+              }
+            } else {
+              if (event.type === 'set' && selected) {
+                const id = pickerOpenFor;
+                setPickerOpenFor(null);
+                if (id) doMarkPaid(id, selected);
+              } else if (event.type === 'dismissed') {
+                setPickerOpenFor(null);
+              }
+            }
+          }}
+        />
+      ) : null}
     </View>
   );
 }

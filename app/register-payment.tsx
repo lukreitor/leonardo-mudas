@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 import { farmsRepo } from '@/repositories/farms';
 import { paymentsService } from '@/services/payments';
@@ -21,11 +24,28 @@ const KINDS: { value: PaymentKind; label: string; icon: string; description: str
 
 export default function RegisterPaymentScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ year?: string; month?: string }>();
+
+  const initialPaidDate = useMemo(() => {
+    const y = params.year ? Number(params.year) : NaN;
+    const m = params.month ? Number(params.month) : NaN;
+    const now = new Date();
+    if (!Number.isNaN(y) && !Number.isNaN(m)) {
+      const sameMonth = now.getFullYear() === y && now.getMonth() + 1 === m;
+      if (!sameMonth) {
+        return new Date(y, m, 0); // último dia do mês
+      }
+    }
+    return now;
+  }, [params.year, params.month]);
+
   const [farms, setFarms] = useState<Farm[]>([]);
   const [farmId, setFarmId] = useState<number | null>(null);
   const [kind, setKind] = useState<PaymentKind>('visit');
   const [amount, setAmount] = useState('');
   const [saleAmount, setSaleAmount] = useState('');
+  const [paidDate, setPaidDate] = useState<Date>(initialPaidDate);
+  const [showPicker, setShowPicker] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -66,6 +86,7 @@ export default function RegisterPaymentScreen() {
         amount: value,
         saleAmount: saleAmount ? parseFloat(saleAmount.replace(',', '.')) : undefined,
         pct: selectedFarm?.commissionPct ?? undefined,
+        paidDate,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
@@ -74,7 +95,7 @@ export default function RegisterPaymentScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [farmId, amount, kind, saleAmount, calcCommission, selectedFarm, router]);
+  }, [farmId, amount, kind, saleAmount, calcCommission, selectedFarm, paidDate, router]);
 
   const calculated = kind === 'commission' ? calcCommission() : null;
 
@@ -163,6 +184,30 @@ export default function RegisterPaymentScreen() {
             placeholderTextColor={colors.ink4}
             keyboardType="decimal-pad"
           />
+
+          <Text style={styles.sectionLabel}>Data do pagamento</Text>
+          <Pressable style={styles.dateBtn} onPress={() => setShowPicker(true)}>
+            <Ionicons name="calendar-outline" size={16} color={colors.broto} />
+            <Text style={styles.dateText}>{format(paidDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}</Text>
+            <Ionicons name="chevron-down" size={14} color={colors.ink3} />
+          </Pressable>
+          {showPicker ? (
+            <DateTimePicker
+              value={paidDate}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              maximumDate={new Date()}
+              onChange={(event, selected) => {
+                if (Platform.OS === 'android') setShowPicker(false);
+                if (event.type === 'set' && selected) {
+                  setPaidDate(selected);
+                  if (Platform.OS === 'ios') setShowPicker(false);
+                } else if (event.type === 'dismissed') {
+                  setShowPicker(false);
+                }
+              }}
+            />
+          ) : null}
 
           <Pressable
             onPress={onSubmit}
@@ -270,6 +315,17 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   calcText: { fontFamily: fonts.uiSemibold, fontSize: 12, color: colors.broto },
+  dateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 14,
+    backgroundColor: 'rgba(74,124,89,0.08)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(74,124,89,0.2)',
+  },
+  dateText: { flex: 1, fontFamily: fonts.uiSemibold, fontSize: 14, color: colors.mata, textTransform: 'capitalize' },
   submitBtn: {
     marginTop: 28,
     padding: 18,

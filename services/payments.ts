@@ -176,13 +176,13 @@ export const paymentsService = {
     };
   },
 
-  async registerPayment(data: { farmId: number; amount: number; kind: PaymentKind; saleAmount?: number; pct?: number; notes?: string }) {
+  async registerPayment(data: { farmId: number; amount: number; kind: PaymentKind; saleAmount?: number; pct?: number; notes?: string; paidDate?: Date }) {
     return paymentsRepo.create({
       farmId: data.farmId,
       amount: data.amount,
       kind: data.kind,
       status: 'paid',
-      paidDate: new Date().toISOString(),
+      paidDate: (data.paidDate ?? new Date()).toISOString(),
       saleAmount: data.saleAmount,
       pct: data.pct,
       notes: data.notes,

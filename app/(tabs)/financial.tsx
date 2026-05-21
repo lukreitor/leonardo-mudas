@@ -253,7 +253,7 @@ export default function FinancialScreen() {
         <View style={{ height: 140 }} />
       </ScrollView>
 
-      <Pressable style={[styles.fab, { bottom: fabBottom }]} onPress={() => router.push('/register-payment' as any)}>
+      <Pressable style={[styles.fab, { bottom: fabBottom }]} onPress={() => router.push(`/register-payment?year=${year}&month=${month}` as any)}>
         <View style={styles.fabIcon}>
           <Ionicons name="add" size={14} color="white" />
         </View>
