@@ -56,7 +56,7 @@ export const backupService = {
     }
 
     const manifest = {
-      app: 'Leonardo Mudas',
+      app: 'Leonardo Consultoria',
       exportedAt: new Date().toISOString(),
       database: 'leonardo-mudas.db',
       mediaFilesCount: mediaCount,
@@ -75,7 +75,7 @@ export const backupService = {
     if (available) {
       await Sharing.shareAsync(zipPath, {
         mimeType: 'application/zip',
-        dialogTitle: `Backup Leonardo Mudas (${mediaCount} mídias)`,
+        dialogTitle: `Backup Leonardo Consultoria (${mediaCount} mídias)`,
       });
     }
   },

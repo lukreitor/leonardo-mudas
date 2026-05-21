@@ -1,4 +1,4 @@
-# Leonardo Mudas
+# Leonardo Consultoria
 
 App Expo para consultoria de mudas de mangueira. Organiza visitas semanais a fazendas, captura anotações livres (fotos/vídeos/áudios/texto), gerencia pagamentos (visita/mensal/comissão) e mantém histórico completo por ano.
 

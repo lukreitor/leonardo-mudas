@@ -73,7 +73,7 @@ export const authService = {
     else await SecureStore.deleteItemAsync(BIOMETRIC_KEY);
   },
 
-  async promptBiometric(reason = 'Desbloquear Leonardo Mudas'): Promise<boolean> {
+  async promptBiometric(reason = 'Desbloquear Leonardo Consultoria'): Promise<boolean> {
     const result = await LocalAuthentication.authenticateAsync({
       promptMessage: reason,
       cancelLabel: 'Cancelar',

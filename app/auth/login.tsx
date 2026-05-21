@@ -119,7 +119,7 @@ export default function LoginScreen() {
               <Path d="M44 44 Q58 40 66 28 Q60 22 50 26 Q44 32 44 44 Z" fill="#7BA05B" />
               <Circle cx={44} cy={36} r={3} fill="#E8A04C" />
             </Svg>
-            <Text style={styles.title}>Leonardo Mudas</Text>
+            <Text style={styles.title}>Leonardo Consultoria</Text>
             <Text style={styles.tagline}>cuidando do que vai crescer</Text>
           </View>
 

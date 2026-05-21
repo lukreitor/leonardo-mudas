@@ -142,7 +142,7 @@ export const pdfService = {
       <body>
         <div class="cover">
           <h1>${MONTHS[month - 1]} · ${year}</h1>
-          <p class="sub">Leonardo Mudas — relatório mensal de visitas</p>
+          <p class="sub">Leonardo Consultoria — relatório mensal de visitas</p>
         </div>
 
         <div class="summary">
@@ -163,7 +163,7 @@ export const pdfService = {
         ${farmCards.length === 0 ? `<p style="text-align:center;color:#8A8580;padding:60px 20px">Nenhuma visita registrada neste mês.</p>` : farmCards.join('')}
 
         <footer>
-          Gerado em ${new Date().toLocaleDateString('pt-BR')} — Leonardo Mudas
+          Gerado em ${new Date().toLocaleDateString('pt-BR')} — Leonardo Consultoria
         </footer>
       </body>
       </html>

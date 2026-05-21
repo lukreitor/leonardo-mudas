@@ -20,7 +20,7 @@ export const exportService = {
       : await db.select().from(farmsTable);
 
     const lines: string[] = [];
-    lines.push('🌱 Leonardo Mudas — Resumo da semana');
+    lines.push('🌱 Leonardo Consultoria — Resumo da semana');
     lines.push('');
 
     for (const farm of farmRows) {

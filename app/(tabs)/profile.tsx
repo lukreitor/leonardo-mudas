@@ -285,7 +285,7 @@ export default function ProfileScreen() {
         </Pressable>
 
         <Text style={styles.version}>
-          Leonardo Mudas · v{Constants.expoConfig?.version ?? '1.0.0'}
+          Leonardo Consultoria · v{Constants.expoConfig?.version ?? '1.0.0'}
         </Text>
 
         <View style={{ height: 120 }} />

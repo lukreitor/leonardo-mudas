@@ -11,7 +11,7 @@ const MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || LOCAL_MAPS_KEY |
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'Leonardo Mudas',
+  name: 'Leonardo Consultoria',
   slug: 'leonardo-mudas',
   android: {
     ...(config.android ?? {}),
