@@ -221,15 +221,6 @@ export default function HomeScreen() {
           ) : null}
         </View>
 
-        {isFuture ? (
-          <View style={styles.futureHint}>
-            <Ionicons name="information-circle-outline" size={14} color={colors.mangaDeep} />
-            <Text style={styles.futureHintText}>
-              Você pode adiantar visitas dessa semana
-            </Text>
-          </View>
-        ) : null}
-
         {nearbyFarm && isCurrent ? (
           <Pressable
             style={styles.nearbyChip}

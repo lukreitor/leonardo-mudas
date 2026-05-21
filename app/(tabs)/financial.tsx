@@ -160,14 +160,8 @@ export default function FinancialScreen() {
               <Text style={styles.metricCurrency}>R$ </Text>
               {summary.yearTotal.toFixed(0)}
             </Text>
-            <Text style={styles.metricSub}>jan a dez</Text>
           </View>
         </View>
-
-        <Text style={styles.metricLegend}>
-          <Text style={{ color: colors.mangaDeep }}>● Pendente</Text> = a vencer este mês ·{' '}
-          <Text style={{ color: colors.danger }}>● Atrasado</Text> = passou da data
-        </Text>
 
         <Pressable
           style={styles.historyLink}
@@ -181,9 +175,6 @@ export default function FinancialScreen() {
           <Text style={styles.sectionTitle}>Por fazenda</Text>
           <Text style={styles.sectionCount}>{summary.byFarm.length}</Text>
         </View>
-        <Text style={styles.sectionHint}>
-          Toque numa fazenda mensal para marcar/desmarcar pago
-        </Text>
 
         <View style={styles.list}>
           {summary.byFarm.map((row, i) => {
