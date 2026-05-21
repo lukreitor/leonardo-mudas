@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { eq } from 'drizzle-orm';
+import { eq, asc } from 'drizzle-orm';
 
 import { db } from '../db/client';
 import { users } from '../db/schema';
@@ -80,5 +80,35 @@ export const authService = {
       disableDeviceFallback: false,
     });
     return result.success;
+  },
+
+  async loginViaBiometric(): Promise<Session | null> {
+    const ok = await this.promptBiometric('Entrar com biometria');
+    if (!ok) return null;
+
+    const cached = await this.getSession();
+    if (cached) return cached;
+
+    const found = await db.select().from(users).orderBy(asc(users.id)).limit(1);
+    if (!found[0]) return null;
+    const session = { userId: found[0].id, email: found[0].email };
+    await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(session));
+    return session;
+  },
+
+  async resetPasswordViaBiometric(newPassword: string): Promise<boolean> {
+    if (newPassword.length < 4) return false;
+    const found = await db.select().from(users).orderBy(asc(users.id)).limit(1);
+    if (!found[0]) return false;
+    let salt = await SecureStore.getItemAsync(SALT_KEY);
+    if (!salt) {
+      salt = generateSalt();
+      await SecureStore.setItemAsync(SALT_KEY, salt);
+    }
+    const hash = await hashPassword(newPassword, salt);
+    await db.update(users).set({ passwordHash: hash }).where(eq(users.id, found[0].id));
+    const session = { userId: found[0].id, email: found[0].email };
+    await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(session));
+    return true;
   },
 };

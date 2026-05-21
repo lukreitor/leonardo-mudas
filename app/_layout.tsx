@@ -27,6 +27,7 @@ import { backupService } from '@/services/backup';
 import { reminderService } from '@/services/reminder';
 import { AppDialog } from '@/components/AppDialog';
 import { useAuthStore } from '@/stores/auth';
+import { authService } from '@/services/auth';
 import { useSettings } from '@/stores/settings';
 import { useOnboarding } from '@/stores/onboarding';
 import { colors } from '@/theme/colors';
@@ -80,20 +81,30 @@ export default function RootLayout() {
     useOnboarding.getState().hydrate();
   }, []);
 
+  const bioVerified = useAuthStore((s) => s.bioVerified);
+
   useEffect(() => {
     if (!hydrated || !seeded || !fontsLoaded || !migrationsReady) return;
     const inAuth = segments[0] === 'auth';
     const inOnboarding = segments[0] === 'onboarding';
     const onb = useOnboarding.getState();
 
-    if (!session && !inAuth) {
-      router.replace('/auth/login' as any);
-    } else if (session && !onb.done && !inOnboarding) {
-      router.replace('/onboarding' as any);
-    } else if (session && onb.done && (inAuth || inOnboarding)) {
-      router.replace('/(tabs)' as any);
-    }
-  }, [session, hydrated, seeded, fontsLoaded, migrationsReady, segments, router]);
+    (async () => {
+      const bioEnabled = await authService.getBiometricEnabled();
+      const bioSupported = await authService.isBiometricSupported();
+      const needsBioUnlock = !!session && bioEnabled && bioSupported && !bioVerified;
+
+      if (!session && !inAuth) {
+        router.replace('/auth/login' as any);
+      } else if (needsBioUnlock && !inAuth) {
+        router.replace('/auth/login' as any);
+      } else if (session && !needsBioUnlock && !onb.done && !inOnboarding) {
+        router.replace('/onboarding' as any);
+      } else if (session && !needsBioUnlock && onb.done && (inAuth || inOnboarding)) {
+        router.replace('/(tabs)' as any);
+      }
+    })();
+  }, [session, bioVerified, hydrated, seeded, fontsLoaded, migrationsReady, segments, router]);
 
   if (migrationsError) {
     return (
