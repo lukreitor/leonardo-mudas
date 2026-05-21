@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { farmsRepo } from '@/repositories/farms';
 import { visitsRepo } from '@/repositories/visits';
@@ -33,6 +33,7 @@ import type { Farm } from '@/db/schema';
 export default function FarmDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [farm, setFarm] = useState<Farm | null>(null);
   const [notes, setNotes] = useState<NoteWithMedia[]>([]);
   const [weekStats, setWeekStats] = useState<Map<number, WeekStat>>(new Map());
@@ -89,7 +90,7 @@ export default function FarmDetailScreen() {
 
   return (
     <View style={styles.root}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 60 + insets.bottom }} showsVerticalScrollIndicator={false}>
         <LinearGradient
           colors={[avatarColor, mix(avatarColor, colors.noite, 0.3)]}
           start={{ x: 0, y: 0 }}

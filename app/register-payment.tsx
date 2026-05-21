@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -25,6 +25,7 @@ const KINDS: { value: PaymentKind; label: string; icon: string; description: str
 
 export default function RegisterPaymentScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ year?: string; month?: string }>();
 
   const initialPaidDate = useMemo(() => {
@@ -103,7 +104,7 @@ export default function RegisterPaymentScreen() {
   return (
     <View style={styles.root}>
       <Pressable style={styles.backdrop} onPress={() => router.back()} />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.sheet}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.sheet, { paddingBottom: 36 + insets.bottom }]}>
         <View style={styles.handle} />
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <Text style={styles.title}>Registrar recebimento</Text>

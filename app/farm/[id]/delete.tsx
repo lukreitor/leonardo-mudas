@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, Alert, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
@@ -31,6 +31,7 @@ export default function DeleteFarmScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const farmId = Number(id);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [farm, setFarm] = useState<Farm | null>(null);
   const [counts, setCounts] = useState<FarmCounts | null>(null);
@@ -101,7 +102,7 @@ export default function DeleteFarmScreen() {
     <View style={styles.root}>
       <Pressable style={styles.backdrop} onPress={() => router.back()} />
 
-      <View style={styles.sheet}>
+      <View style={[styles.sheet, { paddingBottom: 36 + insets.bottom }]}>
         <View style={styles.handle} />
 
         {stage === 'choice' ? (

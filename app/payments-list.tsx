@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -18,6 +18,7 @@ import { initialsOf } from '@/lib/initials';
 const MONTH_NAMES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
 export default function PaymentsListScreen() {
+  const insets = useSafeAreaInsets();
   const { filter } = useLocalSearchParams<{ filter: 'pending' | 'overdue' | 'paid' }>();
   const router = useRouter();
   const [rows, setRows] = useState<PaymentWithFarmAndMonth[]>([]);
@@ -208,7 +209,7 @@ export default function PaymentsListScreen() {
             );
           })
         )}
-        <View style={{ height: 40 }} />
+        <View style={{ height: 40 + insets.bottom }} />
       </ScrollView>
 
       {pickerOpenFor !== null ? (

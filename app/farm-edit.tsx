@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 // styles incluem gpsBtn (declarados abaixo)
@@ -32,6 +32,7 @@ const FREQUENCIES: { value: VisitFrequency; label: string }[] = [
 
 export default function FarmEditScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const editing = id && id !== 'new';
 
@@ -183,7 +184,7 @@ export default function FarmEditScreen() {
       </SafeAreaView>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 60 + insets.bottom }]} keyboardShouldPersistTaps="handled">
           <Section title="Identificação">
             <Field label="Nome *" value={name} onChangeText={setName} placeholder="ex: Marcos" />
             <View style={styles.colorWrap}>

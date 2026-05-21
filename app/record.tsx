@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -39,6 +40,7 @@ const KIND_OPTIONS: { value: Kind; label: string; icon: string }[] = [
 
 export default function RecordScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { farmId } = useLocalSearchParams<{ farmId: string }>();
   const farmIdNum = Number(farmId);
 
@@ -220,7 +222,7 @@ export default function RecordScreen() {
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         {/* Top bar */}
-        <View style={styles.topRow}>
+        <View style={[styles.topRow, { top: Math.max(insets.top + 12, 60) }]}>
           <Pressable onPress={() => router.back()} style={styles.cancelWrap}>
             <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
             <Text style={styles.cancelText}>Cancelar</Text>
@@ -299,13 +301,13 @@ export default function RecordScreen() {
 
         {/* Waveform absolute bottom 220 */}
         {mode === 'audio' ? (
-          <View pointerEvents="none" style={styles.wavefAbs}>
+          <View pointerEvents="none" style={[styles.wavefAbs, { bottom: 220 + insets.bottom }]}>
             <RecordWaveform active={isRecording} />
           </View>
         ) : null}
 
         {/* Record button wrap absolute bottom 80 */}
-        <View pointerEvents="box-none" style={styles.recordWrap}>
+        <View pointerEvents="box-none" style={[styles.recordWrap, { bottom: 80 + insets.bottom }]}>
           <Animated.View style={pulseStyle}>
             {mode === 'audio' ? (
               <Pressable
@@ -348,7 +350,7 @@ export default function RecordScreen() {
         </View>
 
         {/* Mode pills absolute bottom 24 */}
-        <View style={styles.modesAbs}>
+        <View style={[styles.modesAbs, { bottom: 24 + insets.bottom }]}>
           <BlurView intensity={20} tint="dark" style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />
           <View style={styles.modes}>
             {(['audio', 'photo', 'video', 'text'] as Mode[]).map((m) => (
