@@ -89,11 +89,9 @@ export function FarmCard({ name, meta, avatarColor, initials, status, onTap, onL
 
   return (
     <Pressable
-      onPress={handleTap}
-      onLongPress={handleLongPress}
+      onPress={onOpen}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      delayLongPress={LONG_PRESS_MS}
       android_disableSound>
       <Animated.View
         style={[
@@ -125,37 +123,39 @@ export function FarmCard({ name, meta, avatarColor, initials, status, onTap, onL
           ) : null}
         </View>
 
-        {status === 'visited' ? (
-          <Animated.View style={[styles.tickWrap, tickStyle]}>
-            <Svg width={18} height={18} viewBox="0 0 16 16">
-              <AnimatedPath
-                d="M3 8 L7 12 L13 5"
-                stroke="white"
-                strokeWidth={2.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-                strokeDasharray={TICK_PATH_LENGTH}
-                animatedProps={tickPathProps}
-              />
-            </Svg>
-          </Animated.View>
-        ) : status === 'pending' ? (
-          <View style={styles.pendingDot} />
-        ) : (
-          <View style={styles.skippedDot}>
-            <Ionicons name="remove" size={14} color={colors.ink3} />
-          </View>
-        )}
-
         <Pressable
-          onPress={onPreview ?? onOpen}
-          onLongPress={onOpen}
-          delayLongPress={400}
-          hitSlop={12}
-          style={styles.chevron}>
-          <Ionicons name="chevron-forward" size={18} color={colors.ink4} />
+          onPress={handleTap}
+          onLongPress={handleLongPress}
+          delayLongPress={LONG_PRESS_MS}
+          hitSlop={10}
+          style={styles.statusBtn}>
+          {status === 'visited' ? (
+            <Animated.View style={[styles.tickWrap, tickStyle]}>
+              <Svg width={18} height={18} viewBox="0 0 16 16">
+                <AnimatedPath
+                  d="M3 8 L7 12 L13 5"
+                  stroke="white"
+                  strokeWidth={2.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                  strokeDasharray={TICK_PATH_LENGTH}
+                  animatedProps={tickPathProps}
+                />
+              </Svg>
+            </Animated.View>
+          ) : status === 'pending' ? (
+            <View style={styles.pendingDot} />
+          ) : (
+            <View style={styles.skippedDot}>
+              <Ionicons name="remove" size={14} color={colors.ink3} />
+            </View>
+          )}
         </Pressable>
+
+        <View style={styles.chevron}>
+          <Ionicons name="chevron-forward" size={18} color={colors.ink4} />
+        </View>
       </Animated.View>
     </Pressable>
   );
@@ -242,4 +242,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   chevron: { padding: 4 },
+  statusBtn: { padding: 4, alignItems: 'center', justifyContent: 'center' },
 });

@@ -175,6 +175,9 @@ export default function FinancialScreen() {
           <Text style={styles.sectionTitle}>Por fazenda</Text>
           <Text style={styles.sectionCount}>{summary.byFarm.length}</Text>
         </View>
+        <Text style={styles.sectionHint}>
+          Toque numa fazenda mensal para marcar/desmarcar pago
+        </Text>
 
         <View style={styles.list}>
           {summary.byFarm.map((row, i) => {
