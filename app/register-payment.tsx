@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { ptBR } from 'date-fns/locale';
 
 import { farmsRepo } from '@/repositories/farms';
 import { paymentsService } from '@/services/payments';
+import { showDialog } from '@/stores/dialog';
 import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { initialsOf } from '@/lib/initials';
@@ -66,7 +67,7 @@ export default function RegisterPaymentScreen() {
 
   const onSubmit = useCallback(async () => {
     if (!farmId) {
-      Alert.alert('Falta fazenda', 'Selecione qual fazenda pagou.');
+      showDialog({ icon: 'warning', title: 'Falta fazenda', body: 'Selecione qual fazenda pagou.' });
       return;
     }
     let value = parseFloat(amount.replace(',', '.'));
@@ -75,7 +76,7 @@ export default function RegisterPaymentScreen() {
       if (calc) value = calc;
     }
     if (isNaN(value) || value <= 0) {
-      Alert.alert('Valor inválido', 'Digite um valor maior que zero.');
+      showDialog({ icon: 'warning', title: 'Valor inválido', body: 'Digite um valor maior que zero.' });
       return;
     }
     setSubmitting(true);
@@ -91,7 +92,7 @@ export default function RegisterPaymentScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (err: any) {
-      Alert.alert('Erro', err?.message ?? 'Não foi possível registrar');
+      showDialog({ icon: 'error', title: 'Erro', body: err?.message ?? 'Não foi possível registrar' });
     } finally {
       setSubmitting(false);
     }

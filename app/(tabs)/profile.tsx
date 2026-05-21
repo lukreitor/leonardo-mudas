@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect, useCallback } from 'react';
@@ -17,6 +17,8 @@ import { pdfService } from '@/services/pdf';
 import { runDateTests } from '@/lib/date.test';
 import { AmbientBg } from '@/components/AmbientBg';
 import { useThemeColors } from '@/theme/hook';
+import { showDialog } from '@/stores/dialog';
+import { reminderService } from '@/services/reminder';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -54,7 +56,7 @@ export default function ProfileScreen() {
 
   const toggleBio = async () => {
     if (!bioAvailable) {
-      Alert.alert('Indisponível', 'Biometria não configurada no aparelho.');
+      showDialog({ icon: 'info', title: 'Indisponível', body: 'Biometria não configurada no aparelho.' });
       return;
     }
     const next = !bioEnabled;
@@ -76,7 +78,7 @@ export default function ProfileScreen() {
         includeVideo: true,
       });
     } catch (err: any) {
-      Alert.alert('Erro', err?.message ?? 'Não foi possível exportar');
+      showDialog({ icon: 'error', title: 'Erro', body: err?.message ?? 'Não foi possível exportar' });
     } finally {
       setExporting(false);
     }
@@ -86,8 +88,9 @@ export default function ProfileScreen() {
     setBackupping(true);
     try {
       await backupService.exportFullBackup();
+      await reminderService.markExportedNow();
     } catch (err: any) {
-      Alert.alert('Erro', err?.message ?? 'Não foi possível fazer backup');
+      showDialog({ icon: 'error', title: 'Erro', body: err?.message ?? 'Não foi possível fazer backup' });
     } finally {
       setBackupping(false);
     }
@@ -100,34 +103,36 @@ export default function ProfileScreen() {
 
   const handleRestore = useCallback(async () => {
     const result = await DocumentPicker.getDocumentAsync({
-      type: ['application/x-sqlite3', 'application/octet-stream', '*/*'],
+      type: ['application/x-sqlite3', 'application/zip', 'application/octet-stream', '*/*'],
       copyToCacheDirectory: true,
     });
     if (result.canceled || !result.assets[0]) return;
     const uri = result.assets[0].uri;
 
-    Alert.alert(
-      'Restaurar backup?',
-      'Isso vai substituir os dados atuais. Um backup de segurança será criado antes.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
+    showDialog({
+      icon: 'warning',
+      title: 'Restaurar backup?',
+      body: 'Isso vai substituir os dados atuais. Um snapshot de segurança será criado antes.',
+      buttons: [
+        { label: 'Cancelar', style: 'cancel' },
         {
-          text: 'Restaurar',
+          label: 'Restaurar',
           style: 'destructive',
           onPress: async () => {
             try {
               await backupService.restoreFromBackup(uri);
-              Alert.alert(
-                '✓ Restaurado',
-                'Backup importado com sucesso. Feche e reabra o app para ver os dados restaurados.'
-              );
+              showDialog({
+                icon: 'check',
+                title: 'Restaurado',
+                body: 'Backup importado com sucesso. Feche e reabra o app para ver os dados.',
+              });
             } catch (err: any) {
-              Alert.alert('Erro', err?.message ?? 'Falha ao restaurar');
+              showDialog({ icon: 'error', title: 'Erro', body: err?.message ?? 'Falha ao restaurar' });
             }
           },
         },
-      ]
-    );
+      ],
+    });
   }, []);
 
   const refreshAutoBackup = useCallback(async () => {
@@ -139,50 +144,54 @@ export default function ProfileScreen() {
     const buttons: any[] = [];
     if (autoBackup) {
       buttons.push({
-        text: 'Restaurar este backup',
+        label: 'Restaurar este backup',
+        style: 'primary',
         onPress: () =>
-          Alert.alert(
-            'Confirmar restauração',
-            'Substitui os dados atuais. Um snapshot de segurança será salvo antes.',
-            [
-              { text: 'Cancelar', style: 'cancel' },
+          showDialog({
+            icon: 'warning',
+            title: 'Confirmar restauração',
+            body: 'Substitui os dados atuais. Um snapshot de segurança será salvo antes.',
+            buttons: [
+              { label: 'Cancelar', style: 'cancel' },
               {
-                text: 'Restaurar',
+                label: 'Restaurar',
                 style: 'destructive',
                 onPress: async () => {
                   try {
                     await backupService.restoreFromBackup(autoBackup.path);
-                    Alert.alert('✓ Restaurado', 'Feche e reabra o app pra ver os dados restaurados.');
+                    showDialog({ icon: 'check', title: 'Restaurado', body: 'Feche e reabra o app pra ver os dados.' });
                   } catch (err: any) {
-                    Alert.alert('Erro', err?.message ?? 'Falha ao restaurar');
+                    showDialog({ icon: 'error', title: 'Erro', body: err?.message ?? 'Falha ao restaurar' });
                   }
                 },
               },
-            ]
-          ),
+            ],
+          }),
       });
     }
     buttons.push({
-      text: 'Fazer backup agora',
+      label: 'Fazer backup agora',
+      style: 'default',
       onPress: async () => {
         try {
           await backupService.runMonthlyAutoBackupIfNeeded();
           await refreshAutoBackup();
-          Alert.alert('✓ Pronto', 'Backup mensal atualizado.');
+          showDialog({ icon: 'check', title: 'Pronto', body: 'Backup mensal atualizado.' });
         } catch (err: any) {
-          Alert.alert('Erro', err?.message ?? 'Falha ao gerar backup');
+          showDialog({ icon: 'error', title: 'Erro', body: err?.message ?? 'Falha ao gerar backup' });
         }
       },
     });
-    buttons.push({ text: 'Cancelar', style: 'cancel' });
+    buttons.push({ label: 'Cancelar', style: 'cancel' });
 
-    Alert.alert(
-      'Backup automático mensal',
-      autoBackup
+    showDialog({
+      icon: 'save',
+      title: 'Backup automático mensal',
+      body: autoBackup
         ? `Último: ${format(parseISO(autoBackup.createdAt), "d 'de' MMMM 'de' yyyy", { locale: ptBR })} · ${formatBytes(autoBackup.sizeBytes)}`
         : 'Nenhum backup automático ainda. Vai criar agora.',
-      buttons
-    );
+      buttons,
+    });
   }, [autoBackup, refreshAutoBackup]);
 
   const handlePdf = useCallback(async () => {
@@ -190,22 +199,27 @@ export default function ProfileScreen() {
       const now = new Date();
       await pdfService.generateMonthlyReport(now.getFullYear(), now.getMonth() + 1);
     } catch (err: any) {
-      Alert.alert('Erro', err?.message ?? 'Falha ao gerar PDF');
+      showDialog({ icon: 'error', title: 'Erro', body: err?.message ?? 'Falha ao gerar PDF' });
     }
   }, []);
 
   const handleSignOut = () => {
-    Alert.alert('Sair', 'Tem certeza?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Sair',
-        style: 'destructive',
-        onPress: async () => {
-          await signOut();
-          router.replace('/auth/login' as any);
+    showDialog({
+      icon: 'warning',
+      title: 'Sair',
+      body: 'Tem certeza?',
+      buttons: [
+        { label: 'Cancelar', style: 'cancel' },
+        {
+          label: 'Sair',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            router.replace('/auth/login' as any);
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   return (
@@ -345,10 +359,11 @@ export default function ProfileScreen() {
           style={[styles.row, { marginTop: 12 }]}
           onPress={() => {
             const r = runDateTests();
-            Alert.alert(
-              r.failed === 0 ? '✓ Tests passaram' : '✗ Falha em tests',
-              `${r.passed} OK · ${r.failed} falhou${r.errors.length > 0 ? '\n\n' + r.errors.join('\n') : ''}`
-            );
+            showDialog({
+              icon: r.failed === 0 ? 'check' : 'error',
+              title: r.failed === 0 ? 'Tests passaram' : 'Falha em tests',
+              body: `${r.passed} OK · ${r.failed} falhou${r.errors.length > 0 ? '\n\n' + r.errors.join('\n') : ''}`,
+            });
           }}>
           <View style={[styles.rowIcon, { backgroundColor: 'rgba(26,58,46,0.08)' }]}>
             <Ionicons name="bug-outline" size={18} color={colors.mata} />

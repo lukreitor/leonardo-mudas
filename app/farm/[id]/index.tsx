@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +22,7 @@ import { MediaViewer } from '@/components/MediaViewer';
 import { EditNoteSheet } from '@/components/EditNoteSheet';
 import { FarmMapPreview } from '@/components/FarmMapPreview';
 import { notesRepo, mediaRepo } from '@/repositories/notes';
+import { showDialog } from '@/stores/dialog';
 import type { Media } from '@/db/schema';
 import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
@@ -209,17 +210,22 @@ export default function FarmDetailScreen() {
                   onAddText={isCurrentWeek ? () => router.push(`/record?farmId=${farm.id}&mode=text` as any) : undefined}
                   onOpenMedia={(m) => setViewerMedia(m)}
                   onDeleteMedia={(m) =>
-                    Alert.alert('Apagar mídia?', 'Esta foto/áudio/vídeo será removida.', [
-                      { text: 'Cancelar', style: 'cancel' },
-                      {
-                        text: 'Apagar',
-                        style: 'destructive',
-                        onPress: async () => {
-                          await mediaRepo.delete(m.id);
-                          load();
+                    showDialog({
+                      icon: 'trash',
+                      title: 'Apagar mídia?',
+                      body: 'Esta foto/áudio/vídeo será removida.',
+                      buttons: [
+                        { label: 'Cancelar', style: 'cancel' },
+                        {
+                          label: 'Apagar',
+                          style: 'destructive',
+                          onPress: async () => {
+                            await mediaRepo.delete(m.id);
+                            load();
+                          },
                         },
-                      },
-                    ])
+                      ],
+                    })
                   }
                   onEditText={isCurrentWeek ? () => setEditingNote(n) : undefined}
                 />
@@ -311,18 +317,23 @@ export default function FarmDetailScreen() {
           viewerMedia
             ? () => {
                 const m = viewerMedia;
-                Alert.alert('Apagar mídia?', 'Esta foto/vídeo será removida.', [
-                  { text: 'Cancelar', style: 'cancel' },
-                  {
-                    text: 'Apagar',
-                    style: 'destructive',
-                    onPress: async () => {
-                      await mediaRepo.delete(m.id);
-                      setViewerMedia(null);
-                      load();
+                showDialog({
+                  icon: 'trash',
+                  title: 'Apagar mídia?',
+                  body: 'Esta foto/vídeo será removida.',
+                  buttons: [
+                    { label: 'Cancelar', style: 'cancel' },
+                    {
+                      label: 'Apagar',
+                      style: 'destructive',
+                      onPress: async () => {
+                        await mediaRepo.delete(m.id);
+                        setViewerMedia(null);
+                        load();
+                      },
                     },
-                  },
-                ]);
+                  ],
+                });
               }
             : undefined
         }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,6 +21,7 @@ import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { notesService } from '@/services/notes';
 import { farmsRepo } from '@/repositories/farms';
+import { showDialog } from '@/stores/dialog';
 import { initialsOf } from '@/lib/initials';
 import { RecordWaveform } from '@/components/RecordWaveform';
 import type { Farm } from '@/db/schema';
@@ -59,7 +60,7 @@ export default function RecordScreen() {
     (async () => {
       const status = await AudioModule.requestRecordingPermissionsAsync();
       if (!status.granted) {
-        Alert.alert('Permissão negada', 'Habilite o microfone nas configurações para gravar áudio.');
+        showDialog({ icon: 'warning', title: 'Permissão negada', body: 'Habilite o microfone nas configurações para gravar áudio.' });
       }
       if (farmIdNum) {
         const f = await farmsRepo.getById(farmIdNum);
@@ -109,7 +110,7 @@ export default function RecordScreen() {
       setElapsed(0);
       tickerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
     } catch (err: any) {
-      Alert.alert('Erro', err?.message ?? 'Não foi possível gravar');
+      showDialog({ icon: 'error', title: 'Erro', body: err?.message ?? 'Não foi possível gravar' });
     }
   }, [audioRecorder]);
 
@@ -129,7 +130,7 @@ export default function RecordScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (err: any) {
-      Alert.alert('Erro', err?.message ?? 'Erro ao salvar áudio');
+      showDialog({ icon: 'error', title: 'Erro', body: err?.message ?? 'Erro ao salvar áudio' });
       setIsRecording(false);
     }
   }, [audioRecorder, elapsed, farmIdNum, isRecording, router, title]);
@@ -137,7 +138,7 @@ export default function RecordScreen() {
   const takePhoto = useCallback(async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permissão negada', 'Habilite a câmera para tirar fotos.');
+      showDialog({ icon: 'warning', title: 'Permissão negada', body: 'Habilite a câmera para tirar fotos.' });
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.85, allowsEditing: false });
@@ -152,7 +153,7 @@ export default function RecordScreen() {
   const recordVideo = useCallback(async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permissão negada', 'Habilite a câmera para gravar vídeo.');
+      showDialog({ icon: 'warning', title: 'Permissão negada', body: 'Habilite a câmera para gravar vídeo.' });
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -174,7 +175,7 @@ export default function RecordScreen() {
 
   const saveText = useCallback(async () => {
     if (!textNote.trim()) {
-      Alert.alert('Texto vazio', 'Escreva alguma coisa antes de salvar.');
+      showDialog({ icon: 'warning', title: 'Texto vazio', body: 'Escreva alguma coisa antes de salvar.' });
       return;
     }
     await notesService.createNote(farmIdNum, {

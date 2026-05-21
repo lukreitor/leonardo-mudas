@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { paymentsService, formatStructure, type MonthlySummary } from '@/services/payments';
+import { showDialog } from '@/stores/dialog';
 import { initialsOf } from '@/lib/initials';
 import { Sparkline } from '@/components/Sparkline';
 import { AmbientBg } from '@/components/AmbientBg';
@@ -196,7 +197,7 @@ export default function FinancialScreen() {
                     );
                     load();
                   } catch (err: any) {
-                    Alert.alert('Erro', err?.message ?? 'Não foi possível alternar');
+                    showDialog({ icon: 'error', title: 'Erro', body: err?.message ?? 'Não foi possível alternar' });
                   }
                 }
               : undefined;

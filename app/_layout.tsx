@@ -24,6 +24,8 @@ import { runSeedIfNeeded } from '@/services/seed';
 import { maintenanceService } from '@/services/maintenance';
 import { notificationsService } from '@/services/notifications';
 import { backupService } from '@/services/backup';
+import { reminderService } from '@/services/reminder';
+import { AppDialog } from '@/components/AppDialog';
 import { useAuthStore } from '@/stores/auth';
 import { useSettings } from '@/stores/settings';
 import { useOnboarding } from '@/stores/onboarding';
@@ -62,6 +64,9 @@ export default function RootLayout() {
         notificationsService.fireOverdueAlerts().catch(() => {});
         backupService.runMonthlyAutoBackupIfNeeded().catch(() => {});
         setSeeded(true);
+        setTimeout(() => {
+          reminderService.checkAndPromptExport().catch(() => {});
+        }, 2500);
       })();
     }
   }, [migrationsReady, seeded]);
@@ -130,6 +135,7 @@ export default function RootLayout() {
         <Stack.Screen name="record" options={{ presentation: 'fullScreenModal' }} />
       </Stack>
       <StatusBar style="dark" />
+      <AppDialog />
     </GestureHandlerRootView>
   );
 }

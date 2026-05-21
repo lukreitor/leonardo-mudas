@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, Pressable, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { farmsRepo } from '@/repositories/farms';
 import { locationService } from '@/services/location';
 import { maintenanceService } from '@/services/maintenance';
+import { showDialog } from '@/stores/dialog';
 import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import type { Farm } from '@/db/schema';
@@ -85,19 +86,19 @@ export default function FarmEditScreen() {
 
   const onSave = useCallback(async () => {
     if (!name.trim()) {
-      Alert.alert('Falta o nome', 'Nome da fazenda é obrigatório.');
+      showDialog({ icon: 'warning', title: 'Falta o nome', body: 'Nome da fazenda é obrigatório.' });
       return;
     }
     if ((paymentType === 'monthly' || paymentType === 'mixed') && !monthlyAmount.trim()) {
-      Alert.alert('Valor mensal', 'Você escolheu cobrança mensal mas não preencheu o valor.');
+      showDialog({ icon: 'warning', title: 'Valor mensal', body: 'Você escolheu cobrança mensal mas não preencheu o valor.' });
       return;
     }
     if ((paymentType === 'visit' || paymentType === 'mixed') && !visitAmount.trim()) {
-      Alert.alert('Valor por visita', 'Você escolheu cobrança por visita mas não preencheu o valor.');
+      showDialog({ icon: 'warning', title: 'Valor por visita', body: 'Você escolheu cobrança por visita mas não preencheu o valor.' });
       return;
     }
     if ((paymentType === 'commission' || paymentType === 'mixed') && !commissionPct.trim()) {
-      Alert.alert('% comissão', 'Você escolheu comissão mas não preencheu a porcentagem.');
+      showDialog({ icon: 'warning', title: '% comissão', body: 'Você escolheu comissão mas não preencheu a porcentagem.' });
       return;
     }
     setSubmitting(true);
@@ -131,7 +132,7 @@ export default function FarmEditScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (err: any) {
-      Alert.alert('Erro', err?.message ?? 'Não foi possível salvar');
+      showDialog({ icon: 'error', title: 'Erro', body: err?.message ?? 'Não foi possível salvar' });
     } finally {
       setSubmitting(false);
     }
@@ -149,7 +150,7 @@ export default function FarmEditScreen() {
       if (!has) {
         const granted = await locationService.requestPermission();
         if (!granted) {
-          Alert.alert('Permissão negada', 'Permita localização nas configurações.');
+          showDialog({ icon: 'warning', title: 'Permissão negada', body: 'Permita localização nas configurações.' });
           return;
         }
       }
@@ -157,13 +158,12 @@ export default function FarmEditScreen() {
       if (pos) {
         setLat(pos.lat.toFixed(6));
         setLng(pos.lng.toFixed(6));
-        // Reverse geocode pra preencher endereço se vazio
         if (!address.trim()) {
           const formatted = await locationService.reverseGeocode(pos.lat, pos.lng);
           if (formatted) setAddress(formatted);
         }
       } else {
-        Alert.alert('Sem sinal', 'Não foi possível pegar localização. Tente em área aberta.');
+        showDialog({ icon: 'warning', title: 'Sem sinal', body: 'Não foi possível pegar localização. Tente em área aberta.' });
       }
     } finally {
       setFetchingGps(false);

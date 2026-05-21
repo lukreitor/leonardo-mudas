@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { ptBR } from 'date-fns/locale';
 
 import { paymentsService, type PaymentWithFarmAndMonth } from '@/services/payments';
 import { paymentsRepo } from '@/repositories/payments';
+import { showDialog } from '@/stores/dialog';
 import { colors, farmColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { initialsOf } from '@/lib/initials';
@@ -45,43 +46,55 @@ export default function PaymentsListScreen() {
 
   const handleMarkPaid = useCallback(
     (row: PaymentWithFarmAndMonth) => {
-      const buttons: any[] = [{ text: 'Hoje', onPress: () => doMarkPaid(row.payment.id, new Date()) }];
+      const buttons: any[] = [
+        { label: 'Hoje', style: 'primary', onPress: () => doMarkPaid(row.payment.id, new Date()) },
+      ];
       if (row.payment.dueDate) {
         const dueDate = parseISO(row.payment.dueDate);
-        const label = `No vencimento (${format(dueDate, 'd/MM')})`;
-        buttons.push({ text: label, onPress: () => doMarkPaid(row.payment.id, dueDate) });
+        buttons.push({
+          label: `No vencimento (${format(dueDate, 'd/MM')})`,
+          style: 'default',
+          onPress: () => doMarkPaid(row.payment.id, dueDate),
+        });
       }
       buttons.push({
-        text: 'Outra data…',
+        label: 'Outra data…',
+        style: 'default',
         onPress: () => {
           setPickerDate(row.payment.dueDate ? parseISO(row.payment.dueDate) : new Date());
           setPickerOpenFor(row.payment.id);
         },
       });
-      buttons.push({ text: 'Cancelar', style: 'cancel' });
+      buttons.push({ label: 'Cancelar', style: 'cancel' });
 
-      Alert.alert(
-        `Marcar ${row.farm.name} como pago`,
-        'Quando o pagamento foi recebido?',
-        buttons
-      );
+      showDialog({
+        icon: 'check',
+        title: `Marcar ${row.farm.name} como pago`,
+        body: 'Quando o pagamento foi recebido?',
+        buttons,
+      });
     },
     [doMarkPaid]
   );
 
   const handleCancel = useCallback(
     async (paymentId: number) => {
-      Alert.alert('Cancelar?', 'Isso remove o pagamento da lista de pendentes.', [
-        { text: 'Voltar', style: 'cancel' },
-        {
-          text: 'Cancelar pagamento',
-          style: 'destructive',
-          onPress: async () => {
-            await paymentsRepo.cancel(paymentId);
-            load();
+      showDialog({
+        icon: 'warning',
+        title: 'Cancelar pagamento?',
+        body: 'Isso remove o pagamento da lista de pendentes.',
+        buttons: [
+          { label: 'Voltar', style: 'cancel' },
+          {
+            label: 'Cancelar pagamento',
+            style: 'destructive',
+            onPress: async () => {
+              await paymentsRepo.cancel(paymentId);
+              load();
+            },
           },
-        },
-      ]);
+        ],
+      });
     },
     [load]
   );
